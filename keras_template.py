@@ -7,7 +7,8 @@ import numpy as np
 model = Sequential()
 
 model.add(Dense(units=64, activation='relu', input_dim=100))
-model.add(Dense(units=10, activation='softmax'))
+model.add(Dense(units=10))
+model.add(keras.activations.tanh)
 
 model.compile(
         loss='categorical_crossentropy',
