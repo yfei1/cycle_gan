@@ -2,7 +2,8 @@ import keras
 from keras.layers import Dense
 from keras.models import Sequential
 import numpy as np
-
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 model = Sequential()
 
