@@ -4,6 +4,7 @@ from keras.layers import (
         Activation,
         BatchNormalization,
         Conv2D,
+        Conv2DTranspose,
         Input,
         Add
 )
@@ -14,6 +15,7 @@ from keras.activations import (
         sigmoid,
         relu
 )
+from keras import optimizers
 import numpy as np
 
 
@@ -32,68 +34,110 @@ def activation_func(name):
     }[name]
 
 
+INPUT_SHAPE = (128, 128, 3)
+
+# Upsampling parameters
+NUM_CONV_LAYERS = 1
+INIT_FILTER = 8
+KERNEL_SIZE = 3
+CONV_STRIDES = (2, 2)
+
+# Residual Block parameters
+NUM_REPETITIONS = 2
+NUM_RES_BLOCKS = 1
+RES_STRIDES = (1, 1)
+
 class CycleGAN:
     def __init__(self):
-        self.model = Sequential()
+        return
+        # self.generator_1 = self.generator()
+        # self.generator_2 = self.generator()
+        # self.discriminator_1 = self.discriminator()
+        # self.discriminator_2 = self.discriminator()
 
     def discriminator(self):
-        # TODO bianry classifier
-        pass
+        # TODO build a bianry classifier and return the model
+        # Input is an image
+        model = Sequential()
+        model.add(Conv2)
+
+        return model
         
     def generator(self):
-        # TODO add more downsampling layers
-        self.conv()
-        # TODO add more res blocks
-        self.addResBlock(2, 64, 3, (1, 1), 'leakyReLU')
-        # TODO add more upsampling layers
-        self.deconv()
+        model = Sequential()
+        filter_out = self.conv(model, 'leakyReLU')
+        self.residuals(model, 'leakyReLU', filter_out)
+        self.deconv(model, 'leakyReLU', filter_out)
+
+        return model
         
-    # Downsampling
-    def conv(self):
-        # TODO
-        pass
+    # Downsampling - return the final filter size
+    def conv(self, model, activations, init_filter=INIT_FILTER, kernel_size=KERNEL_SIZE, strides=CONV_STRIDES):
+        self._addConvBlock(model, activations, init_filter, kernel_size, strides, True)
 
-    def deconv(self):
-        # TODO
-        pass
+        for i in range(NUM_CONV_LAYERS-1):
+            init_filter *= 2
+            self._addConvBlock(model, activations, init_filter, kernel_size, strides)
 
-    def addResBlock(self, repetitions, filters, kernel_size, strides, activations):
+        return init_filter
+    
+    def deconv(self, model, activations, filters, kernel_size=KERNEL_SIZE, strides=CONV_STRIDES):
+        for i in range(NUM_CONV_LAYERS-1):
+            filters /= 2
+            self._addDeconvBlock(model, activations, filters, kernel_size, strides)
+
+        self._addDeconvBlock(model, activations, INPUT_SHAPE[2], kernel_size, strides)
+
+    def residuals(self, model, activations, filters, kernel_size=KERNEL_SIZE, strides=RES_STRIDES, repetitions=NUM_REPETITIONS):
+        for i in range(NUM_RES_BLOCKS):
+            self._addResBlock(model, activations, filters, kernel_size, strides, repetitions)
+
+    def _addResBlock(self, model, activations, filters, kernel_size, strides, repetitions):
         for i in range(repetitions):
-            self.model.add(BatchNormalization(axis=3))
-            self.model.add(Activation(activation_func(activations)))
-            self.model.add(Conv2D(filters=filters, kernel_size=kernel_size, strides=strides, padding='same'))
+            self._addConvBlock(model, activations, filters, kernel_size, strides)
 
-    def build(self):
-        self.model.compile(
-                loss='categorical_crossentropy',
-                optimizer='adam',
-                metrics=['accuracy']
+    def _addDeconvBlock(self, model, activations, filters, kernel_size=KERNEL_SIZE, strides=CONV_STRIDES):
+        model.add(BatchNormalization(axis=3))
+        model.add(Activation(activation_func(activations)))
+        model.add(Conv2DTranspose(filters=filters, kernel_size=kernel_size, strides=strides, padding='same'))
+
+    def _addConvBlock(self, model, activations, filters, kernel_size, strides, input_layer=False):
+        if not input_layer:
+            model.add(BatchNormalization(axis=3))
+            model.add(Activation(activation_func(activations)))
+            model.add(Conv2D(filters=filters, kernel_size=kernel_size, strides=strides, padding='same'))
+        else:
+            model.add(Conv2D(filters=filters, kernel_size=kernel_size, strides=strides, padding='same', input_shape=INPUT_SHAPE))
+
+    def build(self, model):
+        adam = optimizers.Adam(lr=5e-2, decay=.9)
+        model.compile(
+                loss='mse',
+                optimizer=adam,
+                metrics=['accuracy', 'mae']
                 )
-        print(self.model.summary())
+        model.summary()
 
-    def train(self, x_train, y_train):
-        self.model.fit(x_train, y_train, epochs=5, batch_size=32)
+    def train(self, x_train, y_train, model):
+        model.fit(x_train, y_train, epochs=10, batch_size=32)
 
-    def test(self, x_test, y_test):
-        self.model.evaluate(x_test, y_test, batch_size=32)
+    def test(self, x_test, y_test, model):
+        return model.evaluate(x_test, y_test, batch_size=32)
 
 
 # TODO Preprocess input images
-x_train = np.random.normal(size=[64, 100, 100, 3])
-y_train = np.random.normal(size=[64, 100, 100, 16])
-x_test, y_test = x_train, y_train
+x_train = np.random.normal(size=[2560, 128, 128, 3])
+y_train = x_train
+x_test = np.random.normal(size=[2560, 128, 128, 3])
+y_test = x_test
 
 cycleGAN = CycleGAN()
-cycleGAN.model.add(Conv2D(16, 3, padding='same', input_shape=(100, 100, 3)))
-cycleGAN.addResBlock(repetitions=2, filters=16, kernel_size=3, strides=(1,1), activations='ReLU')
-cycleGAN.addResBlock(repetitions=2, filters=16, kernel_size=3, strides=(1,1), activations='ReLU')
-cycleGAN.addResBlock(repetitions=2, filters=16, kernel_size=3, strides=(1,1), activations='ReLU')
+model = cycleGAN.generator()
 
+cycleGAN.build(model)
 
-cycleGAN.build()
-
-cycleGAN.train(x_train, y_train)
-
+cycleGAN.train(x_train, y_train, model)
+print(cycleGAN.test(x_test, y_test, model))
 
 
 
