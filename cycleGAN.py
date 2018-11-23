@@ -50,20 +50,36 @@ RES_STRIDES = (1, 1)
 
 class CycleGAN:
     def __init__(self):
-        return
-        # self.generator_1 = self.generator()
-        # self.generator_2 = self.generator()
-        # self.discriminator_1 = self.discriminator()
-        # self.discriminator_2 = self.discriminator()
+        self.generator_xy = self.generator()
+        self.generator_yx = self.generator()
+        self.discriminator_x = self.discriminator()
+        self.discriminator_y = self.discriminator()
+
+        X, Y     = Input(INPUT_SHAPE)   , Input(INPUT_SHAPE)
+        X_, Y_   = self.generator_yx(Y) , self.generator_xy(X)
+        X__, Y__ = self.generator_yx(Y_), self.generator_xy(X_)
+        X_identity, Y_identity = self.generator_yx(X), self.generator_xy(Y)
+
+        adam = optimizers.Adam(lr=5e-2, decay=.9)
+ 
+        self.discriminator_x.compile(loss='mse', optimizer=adam, metrics=['accuracy'])
+        self.discriminator_y.compile(loss='mse', optimizer=adam, metrics=['accuracy'])
+
+        self.discriminator_x.trainable = False
+        self.discriminator_y.trainable = False
+
+        X_valid, Y_valid = self.discriminator_x(X_), self.discriminator_y(Y_)
+
+        # TODO: Figure out the weights of the losses
+        self.generators = Model(inputs=[X, Y], outputs=[X_valid, Y_valid, X__, Y__, X_identity, Y_identity])
+        
+        # The paper suggests using L1 norm for the last four loss functions, try out different settings if it doesn't work
+        self.generators.compile(loss=['mse']*2 + ['mae']*4, optimizer=adam)
+
 
     def discriminator(self):
-        # TODO build a bianry classifier and return the model
         # Input is an image
         model = Sequential()
-        #model.add(Conv2)
-        #return model
-        
-        #I guess it should be written in this way, wait me to test it out
         filter_out = self.conv(model, 'leakyReLU')
         # Not sure if a binary discriminator needs residual blocks
         self.residuals(model, 'leakyReLU', filter_out)
@@ -120,21 +136,13 @@ class CycleGAN:
         else:
             model.add(Conv2D(filters=filters, kernel_size=kernel_size, strides=strides, padding='same', input_shape=INPUT_SHAPE))
 
-    def build(self, model):
-        adam = optimizers.Adam(lr=5e-2, decay=.9)
-        model.compile(
-                loss='mse',
-                optimizer=adam,
-                metrics=['accuracy', 'mae']
-                )
-        model.summary()
+    def train(self, x_train, y_train):
+        # TODO: implements training process
+        pass
 
-    def train(self, x_train, y_train, model):
-        model.fit(x_train, y_train, epochs=10, batch_size=32)
-
-    def test(self, x_test, y_test, model):
-        return model.evaluate(x_test, y_test, batch_size=32)
-
+    def test(self, x_test, y_test):
+        # TODO: implements evaluation
+        pass
 
 # TODO Preprocess input images
 x_train = np.random.normal(size=[2560, 128, 128, 3])
