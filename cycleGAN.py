@@ -6,7 +6,8 @@ from keras.layers import (
         Conv2D,
         Conv2DTranspose,
         Input,
-        Add
+        Add,
+        Reshape
 )
 from keras.models import Sequential
 from keras.activations import (
@@ -64,10 +65,13 @@ class CycleGAN:
         
         #I guess it should be written in this way, wait me to test it out
         filter_out = self.conv(model, 'leakyReLU')
+        # Not sure if a binary discriminator needs residual blocks
         self.residuals(model, 'leakyReLU', filter_out)
-        validity = model.add(Conv2D(filters=1, kernel_size=KERNEL_SIZE, strides=(1, 1), padding='same'))
+        self._addConvBlock(model, 'leakyReLU', filters=1, kernel_size=KERNEL_SIZE, strides=CONV_STRIDES)
+        model.add(Reshape((-1,)))
+        model.add(Dense(1))
 
-        return validity
+        return model
 
         
     def generator(self):
@@ -134,12 +138,16 @@ class CycleGAN:
 
 # TODO Preprocess input images
 x_train = np.random.normal(size=[2560, 128, 128, 3])
-y_train = x_train
+# y_train = x_train # train tensor for the generator
+y_train = np.random.normal(size=[2560, 1]) # train tensor for the discriminator
+
 x_test = np.random.normal(size=[2560, 128, 128, 3])
-y_test = x_test
+# y_test = x_test # test tensor for the generator
+y_test = np.random.normal(size=[2560, 1]) # test tensor for the discriminator
 
 cycleGAN = CycleGAN()
-model = cycleGAN.generator()
+#model = cycleGAN.generator()
+model = cycleGAN.discriminator()
 
 cycleGAN.build(model)
 
