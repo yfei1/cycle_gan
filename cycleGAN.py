@@ -59,9 +59,16 @@ class CycleGAN:
         # TODO build a bianry classifier and return the model
         # Input is an image
         model = Sequential()
-        model.add(Conv2)
+        #model.add(Conv2)
+        #return model
+        
+        #I guess it should be written in this way, wait me to test it out
+        filter_out = self.conv(model, 'leakyReLU')
+        self.residuals(model, 'leakyReLU', filter_out)
+        validity = model.add(Conv2D(filters=1, kernel_size=KERNEL_SIZE, strides=(1, 1), padding='same'))
 
-        return model
+        return validity
+
         
     def generator(self):
         model = Sequential()
