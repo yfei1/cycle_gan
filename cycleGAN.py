@@ -18,7 +18,8 @@ from keras.activations import (
 )
 from keras import optimizers
 import numpy as np
-
+import os
+import tensorflow as tf
 
 """ Return an activation function as needed"""
 def activation_func(name):
@@ -36,6 +37,7 @@ def activation_func(name):
 
 
 INPUT_SHAPE = (128, 128, 3)
+BATCH_SIZE = 2
 
 # Upsampling parameters
 NUM_CONV_LAYERS = 1
@@ -47,6 +49,7 @@ CONV_STRIDES = (2, 2)
 NUM_REPETITIONS = 2
 NUM_RES_BLOCKS = 1
 RES_STRIDES = (1, 1)
+
 
 class CycleGAN:
     def __init__(self):
@@ -145,6 +148,19 @@ class CycleGAN:
         pass
 
 # TODO Preprocess input images
+'''
+# Preprocess input is done and it works. May need to make it as a function
+dirDataset = tf.data.Dataset.list_files('./image/*.jpg')
+imageDataset = dirDataset.map(lambda x: tf.image.resize_images(tf.image.decode_jpeg(tf.read_file(x), channels = INPUT_SHAPE[2]), [INPUT_SHAPE[0], INPUT_SHAPE[1]]))
+imageDataset = imageDataset.batch(BATCH_SIZE)
+iterator = imageDataset.make_one_shot_iterator()
+x_train = iterator.get_next()
+
+Sess = tf.Session()
+print(Sess.run(x_train))
+
+
+'''
 x_train = np.random.normal(size=[2560, 128, 128, 3])
 # y_train = x_train # train tensor for the generator
 y_train = np.random.normal(size=[2560, 1]) # train tensor for the discriminator
@@ -161,6 +177,5 @@ cycleGAN.build(model)
 
 cycleGAN.train(x_train, y_train, model)
 print(cycleGAN.test(x_test, y_test, model))
-
 
 
