@@ -142,6 +142,26 @@ class CycleGAN:
     def train(self, x_train, y_train):
         # TODO: implements training process
         pass
+        # train the discriminators
+            # train with real images
+                # compute the discriminator losses on real images
+                # optimize D_X_loss + D_Y_loss
+            # train with fake images
+                # generate fake images that look like X based on real images in Y [self.generator_yx(Y)]
+                # compute the loss for D_X
+                # generate fake images that look like Y based on real images in X [self.generator_xy(X)]
+                # compute the loss for D_Y
+                # optimize D_X_loss + D_Y_loss
+        # train the generators
+            # Y->X->Y
+                # generate fake images that look like X based on real images in domain Y [self.generator_yx(Y)]
+                # compute the generator loss based on X
+                # compute the cycle consistency loss, and optimize it
+            # X->Y->X
+                # generate fake images that look like Y based on real images in domain X [self.generator_xy(X)]
+                # compute the generator loss based on Y
+                # compute the cycle consistency loss, and optimize it
+
 
     def test(self, x_test, y_test):
         # TODO: implements evaluation
