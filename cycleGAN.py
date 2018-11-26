@@ -154,11 +154,11 @@ class CycleGAN:
                 # optimize D_X_loss + D_Y_loss
         # train the generators
             # Y->X->Y
-                # generate fake images that look like X based on real images in domain Y [self.generator_yx(Y)]
+                # generate fake images that look like X based on real images in Y [self.generator_yx(Y)]
                 # compute the generator loss based on X
                 # compute the cycle consistency loss, and optimize it
             # X->Y->X
-                # generate fake images that look like Y based on real images in domain X [self.generator_xy(X)]
+                # generate fake images that look like Y based on real images in X [self.generator_xy(X)]
                 # compute the generator loss based on Y
                 # compute the cycle consistency loss, and optimize it
 
@@ -195,7 +195,7 @@ model = cycleGAN.discriminator()
 
 cycleGAN.build(model)
 
-cycleGAN.train(x_train, y_train, model)
-print(cycleGAN.test(x_test, y_test, model))
+cycleGAN.train(x_train, y_train)
+print(cycleGAN.test(x_test, y_test))
 
 
