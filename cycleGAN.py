@@ -139,29 +139,30 @@ class CycleGAN:
         else:
             model.add(Conv2D(filters=filters, kernel_size=kernel_size, strides=strides, padding='same', input_shape=INPUT_SHAPE))
 
-    def train(self, x_train, y_train):
+    def train(self, iterator):
         # TODO: implements training process
-        pass
-        # train the discriminators
-            # train with real images
-                # compute the discriminator losses on real images
-                # optimize D_X_loss + D_Y_loss
-            # train with fake images
-                # generate fake images that look like X based on real images in Y [self.generator_yx(Y)]
-                # compute the loss for D_X
-                # generate fake images that look like Y based on real images in X [self.generator_xy(X)]
-                # compute the loss for D_Y
-                # optimize D_X_loss + D_Y_loss
-        # train the generators
-            # Y->X->Y
-                # generate fake images that look like X based on real images in Y [self.generator_yx(Y)]
-                # compute the generator loss based on X
-                # compute the cycle consistency loss, and optimize it
-            # X->Y->X
-                # generate fake images that look like Y based on real images in X [self.generator_xy(X)]
-                # compute the generator loss based on Y
-                # compute the cycle consistency loss, and optimize it
+        valid = np.ones((BATCH_SIZE, 1))
+        fake  = np.zeros((BATCH_SIZE, 1))
+        for epoch in range(0,100):
+            for batch_i, (x_train, y_train) in enumerate(iterator.load_batch(BATCH_SIZE)):
+                x_valid, y_valid, x__, y__, x_identity, y_identity = self.generators.predict([x_train, y_train])
 
+                d_x_real_loss = self.discriminator_x.train_on_batch(x_train, valid)
+                d_x_fake_loss = self.discriminator_x.train_on_batch(x_valid, fake)
+                d_x_loss = 0.5 * np.add(d_x_real_loss, d_x_fake_loss)
+
+                d_y_real_loss = self.discriminator_y.train_on_batch(y_train, valid)
+                d_y_fake_loss = self.discriminator_y.train_on_batch(y_valid, fake)
+                d_y_loss = 0.5 * np.add(d_y_real_loss, d_y_fake_loss)
+
+                # Total disciminator loss
+                d_loss = 0.5 * np.add(d_x_loss, d_y_loss)
+
+                # Total generator loss
+                g_loss = self.generators.train_on_batch([x_train, y_train],
+                                                            [valid, valid,
+                                                            x_train, y_train,
+                                                            x_train, y_train])        
 
     def test(self, x_test, y_test):
         # TODO: implements evaluation
