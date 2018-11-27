@@ -172,8 +172,13 @@ class CycleGAN:
 '''
 # Preprocess input is done and it works. May need to make it as a function
 dirDataset = tf.data.Dataset.list_files('./image/*.jpg')
+dirDataset2 = tf.data.Dataset.list_files('./image/*.jpg')
+
 imageDataset = dirDataset.map(lambda x: tf.image.resize_images(tf.image.decode_jpeg(tf.read_file(x), channels = INPUT_SHAPE[2]), [INPUT_SHAPE[0], INPUT_SHAPE[1]]))
-imageDataset = imageDataset.batch(BATCH_SIZE)
+imageDataset2 = dirDataset2.map(lambda x: tf.image.resize_images(tf.image.decode_jpeg(tf.read_file(x), channels = INPUT_SHAPE[2]), [INPUT_SHAPE[0], INPUT_SHAPE[1]]))
+xyDataset = tf.data.Dataset.zip((imageDataset, imageDataset2))
+xyDataset = xyDataset.batch(BATCH_SIZE)
+
 iterator = imageDataset.make_one_shot_iterator()
 x_train = iterator.get_next()
 
