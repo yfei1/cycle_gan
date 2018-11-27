@@ -35,9 +35,11 @@ def activation_func(name):
             'softmax': softmax
     }[name]
 
-
+# training image parameters
 INPUT_SHAPE = (128, 128, 3)
 BATCH_SIZE = 2
+X_PATH = './image'
+Y_PATH = './image'
 
 # Upsampling parameters
 NUM_CONV_LAYERS = 1
@@ -57,7 +59,10 @@ class CycleGAN:
         self.generator_yx = self.generator()
         self.discriminator_x = self.discriminator()
         self.discriminator_y = self.discriminator()
+        
+        self.xy_Dataset = self.buildDataset()
 
+        '''        
         X, Y     = Input(INPUT_SHAPE)   , Input(INPUT_SHAPE)
         X_, Y_   = self.generator_yx(Y) , self.generator_xy(X)
         X__, Y__ = self.generator_yx(Y_), self.generator_xy(X_)
@@ -78,7 +83,7 @@ class CycleGAN:
         
         # The paper suggests using L1 norm for the last four loss functions, try out different settings if it doesn't work
         self.generators.compile(loss=['mse']*2 + ['mae']*4, optimizer=adam)
-
+        '''
 
     def discriminator(self):
         # Input is an image
@@ -139,52 +144,68 @@ class CycleGAN:
         else:
             model.add(Conv2D(filters=filters, kernel_size=kernel_size, strides=strides, padding='same', input_shape=INPUT_SHAPE))
 
-    def train(self, iterator):
+    def train(self):
         # TODO: implements training process
         valid = np.ones((BATCH_SIZE, 1))
         fake  = np.zeros((BATCH_SIZE, 1))
         for epoch in range(0,100):
-            for batch_i, (x_train, y_train) in enumerate(iterator.load_batch(BATCH_SIZE)):
-                x_valid, y_valid, x__, y__, x_identity, y_identity = self.generators.predict([x_train, y_train])
+            iterator = self.xy_Dataset.make_initializable_iterator()
+            Sess = tf.Session()
+            Sess.run(iterator.initializer)
+            while True:
+                try:
+                    (x_train, y_train) = iterator.get_next()
+                    print(Sess.run([x_train, y_train]))
+                    # Don't need the for loop now, please change the code below. 
+                    # If u run the function, you can find that x_train and y_train are the tensor that you need
 
-                d_x_real_loss = self.discriminator_x.train_on_batch(x_train, valid)
-                d_x_fake_loss = self.discriminator_x.train_on_batch(x_valid, fake)
-                d_x_loss = 0.5 * np.add(d_x_real_loss, d_x_fake_loss)
+                    '''
+                    for batch_i, (x_train, y_train) in enumerate(iterator.load_batch(BATCH_SIZE)):
+                        x_valid, y_valid, x__, y__, x_identity, y_identity = self.generators.predict([x_train, y_train])
 
-                d_y_real_loss = self.discriminator_y.train_on_batch(y_train, valid)
-                d_y_fake_loss = self.discriminator_y.train_on_batch(y_valid, fake)
-                d_y_loss = 0.5 * np.add(d_y_real_loss, d_y_fake_loss)
+                        d_x_real_loss = self.discriminator_x.train_on_batch(x_train, valid)
+                        d_x_fake_loss = self.discriminator_x.train_on_batch(x_valid, fake)
+                        d_x_loss = 0.5 * np.add(d_x_real_loss, d_x_fake_loss)
 
-                # Total disciminator loss
-                d_loss = 0.5 * np.add(d_x_loss, d_y_loss)
+                        d_y_real_loss = self.discriminator_y.train_on_batch(y_train, valid)
+                        d_y_fake_loss = self.discriminator_y.train_on_batch(y_valid, fake)
+                        d_y_loss = 0.5 * np.add(d_y_real_loss, d_y_fake_loss)
 
-                # Total generator loss
-                g_loss = self.generators.train_on_batch([x_train, y_train],
-                                                            [valid, valid,
-                                                            x_train, y_train,
-                                                            x_train, y_train])        
+                        # Total disciminator loss
+                        d_loss = 0.5 * np.add(d_x_loss, d_y_loss)
+
+                        # Total generator loss
+                        g_loss = self.generators.train_on_batch([x_train, y_train],
+                                                                    [valid, valid,
+                                                                    x_train, y_train,
+                                                                    x_train, y_train])        
+                    '''
+                
+                except tf.errors.OutOfRangeError:
+                    print('epoch ' + str( epoch) + ' end.')
+                    break
+
+
+
+    def buildDataset(self, x_path = X_PATH, y_path = Y_PATH):        
+        x_Dataset = tf.data.Dataset.list_files( x_path + '/*.jpg')
+        y_Dataset = tf.data.Dataset.list_files( y_path + '/*.jpg')
+
+        x_images = x_Dataset.map(lambda x: tf.image.resize_images(tf.image.decode_jpeg(tf.read_file(x), channels = INPUT_SHAPE[2]), [INPUT_SHAPE[0], INPUT_SHAPE[1]]))
+        y_images = y_Dataset.map(lambda x: tf.image.resize_images(tf.image.decode_jpeg(tf.read_file(x), channels = INPUT_SHAPE[2]), [INPUT_SHAPE[0], INPUT_SHAPE[1]]))
+
+        xy_images = tf.data.Dataset.zip((x_images, y_images))
+        xy_Dataset = xy_images.batch(BATCH_SIZE)
+        return xy_Dataset
+
 
     def test(self, x_test, y_test):
         # TODO: implements evaluation
         pass
 
 # TODO Preprocess input images
-'''
-# Preprocess input is done and it works. May need to make it as a function
-dirDataset = tf.data.Dataset.list_files('./image/*.jpg')
-dirDataset2 = tf.data.Dataset.list_files('./image/*.jpg')
-
-imageDataset = dirDataset.map(lambda x: tf.image.resize_images(tf.image.decode_jpeg(tf.read_file(x), channels = INPUT_SHAPE[2]), [INPUT_SHAPE[0], INPUT_SHAPE[1]]))
-imageDataset2 = dirDataset2.map(lambda x: tf.image.resize_images(tf.image.decode_jpeg(tf.read_file(x), channels = INPUT_SHAPE[2]), [INPUT_SHAPE[0], INPUT_SHAPE[1]]))
-xyDataset = tf.data.Dataset.zip((imageDataset, imageDataset2))
-xyDataset = xyDataset.batch(BATCH_SIZE)
-
-iterator = imageDataset.make_one_shot_iterator()
-x_train = iterator.get_next()
-
-Sess = tf.Session()
-print(Sess.run(x_train))
-
+cycleGAN = CycleGAN()
+cycleGAN.train()
 
 '''
 x_train = np.random.normal(size=[2560, 128, 128, 3])
@@ -196,6 +217,7 @@ x_test = np.random.normal(size=[2560, 128, 128, 3])
 y_test = np.random.normal(size=[2560, 1]) # test tensor for the discriminator
 
 cycleGAN = CycleGAN()
+
 #model = cycleGAN.generator()
 model = cycleGAN.discriminator()
 
@@ -203,5 +225,5 @@ cycleGAN.build(model)
 
 cycleGAN.train(x_train, y_train)
 print(cycleGAN.test(x_test, y_test))
-
+'''
 
