@@ -17,6 +17,7 @@ from keras.activations import (
         relu
 )
 from keras import optimizers
+from keras import backend as K
 import numpy as np
 import os
 import tensorflow as tf
@@ -34,6 +35,27 @@ def activation_func(name):
             'sigmoid': sigmoid,
             'softmax': softmax
     }[name]
+
+# ##### WGAN ######
+#
+# # should label generated samples -1 and real samples 1
+# def wasserstein_loss(y_true, y_pred):
+#     return K.mean(y_true * y_pred)
+#
+# # need to generate random weighted-averages of real and generated samples, to feed the discriminator
+# # and use for the gradient norm penalty.
+# def gradient_penalty_loss(y_true, y_pred, averaged_samples, gradient_penalty_weight):
+#     gradients = K.gradients(y_pred, averaged_samples)[0]
+#     gradients_sqr = K.square(gradients)
+#     gradients_sqr_sum = K.sum(gradients_sqr,
+#                               axis=np.arange(1, len(gradients_sqr.shape)))
+#     gradient_l2_norm = K.sqrt(gradients_sqr_sum)
+#     gradient_penalty = gradient_penalty_weight * K.square(1 - gradient_l2_norm)
+#     return K.mean(gradient_penalty)
+#
+# # WGAN parameters
+# GRADIENT_PENALTY_WEIGHT = 10
+# TRAINING_RATIO = 5  # the number of discriminator updates per generator update
 
 # training image parameters
 INPUT_SHAPE = (128, 128, 3)
