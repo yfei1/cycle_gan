@@ -4,4 +4,6 @@
 *.pyc
 datasets/*
 *.swp
+*.swo
+./ipynb/*
 
