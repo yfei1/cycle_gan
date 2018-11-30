@@ -6,4 +6,5 @@ datasets/*
 *.swp
 *.swo
 ./ipynb/*
+.ipynb_checkpoints/*
 
