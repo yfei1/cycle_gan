@@ -18,10 +18,12 @@ INPUT_WIDTH = 256
 INPUT_DIM = 3
 X_PATH = './datasets/monet2photo/trainA'
 Y_PATH = './datasets/monet2photo/trainB'
+MODE = 'train'
+OUT = './output'
 log_every = 10
 save_every = 10
 L1_lambda = 10
-
+RESTORE = False
 
 class Model(object):
     def __init__(self):
@@ -105,7 +107,14 @@ def buildDataset(self, x_path = X_PATH, y_path = Y_PATH):
     xy_Dataset = xy_images.batch(BATCH_SIZE)
     return xy_Dataset
 
+
+if not os.path.exists(OUT):
+    os.makedirs(OUT)
+    os.makedirs(OUT+'/X2Y_OUT')
+    os.makedirs(OUT+'/Y2X_OUT')
+    
 xy_Dataset = buildDataset()
+model = Model()
 # Start session
 sess = tf.Session()
 sess.run(tf.global_variables_initializer())
@@ -119,25 +128,26 @@ def load_last_checkpoint():
 
 def train():
     for epoch in range(args.epoch):
-        iterator = self.xy_Dataset.make_initializable_iterator()
+        iterator = xy_Dataset.make_initializable_iterator()
         (x_next, y_next) = iterator.get_next()
         sess.run(iterator.initializer)
 
-        # lr = args.lr if epoch < args.epoch_step else args.lr*(args.epoch-epoch)/(args.epoch-args.epoch_step)
-        
+        # lr = args.lr if epoch < args.epoch_step else args.lr*(args.epoch-epoch)/(args.epoch-args.epoch_step)        
         iteration = 0
         while True:
             try:
-                X, Y = self.session.run([x_next, y_next])
+                X, Y = session.run([x_next, y_next])
 
                 if x_train.shape[0] != BATCH_SIZE:
                     break
 
                 # Update G network and record fake outputs
-                X2Y, Y2X, _ = self.sess.run([self.X2Y, self.Y2X, self.g_train], feed_dict={self.X: X, self.Y: Y})
+                X2Y, Y2X, _ = sess.run([model.X2Y, model.Y2X, model.g_train], feed_dict={model.X: X, model.Y: Y})
 
                 # Update D network
-                _ = self.sess.run(self.d_train,feed_dict={self.X: batch_imagesX, self.Y: batch_imagesY, self.X2Y_sample: X2Y, self.X2Y_sample: Y2X})
+                _ = sess.run(model.d_train,feed_dict={model.X: batch_imagesX, model.Y: batch_imagesY, model.X2Y_sample: X2Y, model.X2Y_sample: Y2X})
+                
+                loss_d, loss_g = sess.run([model.d_loss, model.g_loss],feed_dict={model.X: batch_imagesX, model.Y: batch_imagesY, model.X2Y_sample: X2Y, model.X2Y_sample: Y2X})
 
                 # Print losses
                 if iteration % log_every == 0:
@@ -153,18 +163,50 @@ def train():
 
 
 def test():
-    pass
+    iterator = xy_Dataset.make_initializable_iterator()
+    (x_next, y_next) = iterator.get_next()
+    sess.run(iterator.initializer)
+    X, Y = session.run([x_next, y_next])
+    
+    gen_y, gen_x = sess.run([model.X2Y, model.Y2X], feed_dict={model.X: X, model.Y: Y})    
+    
+    # Rescale the image from (-1, 1) to (0, 255)
+    gen_y = ((gen_y / 2) - 0.5) * 255
+    gen_x = ((gen_x / 2) - 0.5) * 255
+    
+    # Convert to uint8
+    gen_y = gen_y.astype(np.uint8)
+    gen_x = gen_x.astype(np.uint8)
+    
+    X = X.astype(np.uint8)
+    Y = Y.astype(np.uint8)
+    
+    # Save images to disk
+    for i in range(0, BATCH_SIZE):
+        img_Xi = X[i]
+        s = OUT+'/X2Y_OUT/X_'+str(i)+'.png'
+        imsave(s, img_Xi)
+        
+        img_yi = gen_y[i]
+        s = OUT+'/X2Y_OUT/Y_'+str(i)+'.png'
+        imsave(s, img_yi)
+        
+        img_Yi = Y[i]
+        s = OUT+'/Y2X_OUT/Y_'+str(i)+'.png'
+        imsave(s, img_Yi)
+        
+        img_xi = gen_x[i]
+        s = OUT+'/Y2X_OUT/X_'+str(i)+'.png'
+        imsave(s, img_xi)
 
 
 # Ensure the output directory exists
-if not os.path.exists(args.out_dir):
-    os.makedirs(args.out_dir)
 
-if args.restore_checkpoint or args.mode == 'test':
+if RESTORE or MODE == 'test':
     load_last_checkpoint()
 
-if args.mode == 'train':
+if MODE == 'train':
     train()
-if args.mode == 'test':
+if MODE == 'test':
     test()
        
