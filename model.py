@@ -18,6 +18,9 @@ INPUT_WIDTH = 256
 INPUT_DIM = 3
 X_PATH = './datasets/monet2photo/trainA'
 Y_PATH = './datasets/monet2photo/trainB'
+log_every = 10
+save_every = 10
+L1_lambda = 10
 
 
 class Model(object):
@@ -25,8 +28,6 @@ class Model(object):
         self.discriminator = discriminator
         self.generator = generator
         # self.criterionGAN = mae_criterion
-
-        self.xy_Dataset = self.buildDataset()
 
         self.X = tf.placeholder(tf.float32, [None, INPUT_WIDTH, INPUT_WIDTH, INPUT_DIM])
         self.Y = tf.placeholder(tf.float32, [None, INPUT_WIDTH, INPUT_WIDTH, INPUT_DIM])
@@ -59,24 +60,23 @@ class Model(object):
         self.d_train = self.d_trainer()
         # self.fid = self.fid_function()
 
-
-    def buildDataset(self, x_path = X_PATH, y_path = Y_PATH):        
-        x_Dataset = tf.data.Dataset.list_files( x_path + '/*.jpg')
-        y_Dataset = tf.data.Dataset.list_files( y_path + '/*.jpg')
-
-        x_images = x_Dataset.map(lambda x: tf.image.resize_images(tf.image.decode_jpeg(tf.read_file(x), channels = INPUT_SHAPE[2]), [INPUT_SHAPE[0], INPUT_SHAPE[1]]))
-        y_images = y_Dataset.map(lambda x: tf.image.resize_images(tf.image.decode_jpeg(tf.read_file(x), channels = INPUT_SHAPE[2]), [INPUT_SHAPE[0], INPUT_SHAPE[1]]))
-
-        xy_images = tf.data.Dataset.zip((x_images, y_images))
-        xy_Dataset = xy_images.batch(BATCH_SIZE)
-        return xy_Dataset
-
-
     def g_loss_function(self):
-        pass
+        g_loss_X2Y = tf.losses.mean_squared_error(self.d_X2Y, tf.ones_like(self.d_X2Y))
+        g_loss_Y2X = tf.losses.mean_squared_error(self.d_Y2X, tf.ones_like(self.d_Y2X))
+        cyc_loss_X = tf.losses.absolute_difference(self.X, self.X2Y2X)
+        cyc_loss_Y = tf.losses.absolute_difference(self.Y, self.Y2X2Y)
+        g_loss = g_loss_X2Y + g_loss_Y2X + cyc_loss_X * L1_lambda + cyc_loss_Y * L1_lambda
+        return g_loss
 
     def d_loss_function(self):
-        pass
+        d_Y_loss_real = tf.losses.mean_squared_error(self.d_Y, tf.ones_like(self.d_Y))
+        d_Y_loss_fake = tf.losses.mean_squared_error(self.d_X2Y_sample, tf.zeros_like(self.d_X2Y_sample))
+        d_Y_loss = (d_Y_loss_real + d_Y_loss_fake) / 2
+        d_X_loss_real = tf.losses.mean_squared_error(self.d_X, tf.ones_like(self.d_X))
+        d_X_loss_fake = tf.losses.mean_squared_error(self.d_Y2X_sample, tf.zeros_like(self.d_Y2X_sample))
+        d_X_loss = (da_loss_real + da_loss_fake) / 2
+        d_loss = d_Y_loss + d_X_loss
+        return d_loss
 
     def g_trainer(self):
         g_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, 'generator')
@@ -94,7 +94,18 @@ class Model(object):
     #     fake_resized = tf.image.resize_images(self.g_output, INCEPTION_IMAGE_SIZE)
     #     return gan.eval.frechet_classifier_distance(real_resized, fake_resized, gan.eval.run_inception)
 
+def buildDataset(self, x_path = X_PATH, y_path = Y_PATH):        
+    x_Dataset = tf.data.Dataset.list_files( x_path + '/*.jpg')
+    y_Dataset = tf.data.Dataset.list_files( y_path + '/*.jpg')
 
+    x_images = x_Dataset.map(lambda x: tf.image.resize_images(tf.image.decode_jpeg(tf.read_file(x), channels = INPUT_SHAPE[2]), [INPUT_SHAPE[0], INPUT_SHAPE[1]]))
+    y_images = y_Dataset.map(lambda x: tf.image.resize_images(tf.image.decode_jpeg(tf.read_file(x), channels = INPUT_SHAPE[2]), [INPUT_SHAPE[0], INPUT_SHAPE[1]]))
+
+    xy_images = tf.data.Dataset.zip((x_images, y_images))
+    xy_Dataset = xy_images.batch(BATCH_SIZE)
+    return xy_Dataset
+
+xy_Dataset = buildDataset()
 # Start session
 sess = tf.Session()
 sess.run(tf.global_variables_initializer())
@@ -108,29 +119,37 @@ def load_last_checkpoint():
 
 def train():
     for epoch in range(args.epoch):
-        np.random.shuffle(dataX)
-        np.random.shuffle(dataY)
+        iterator = self.xy_Dataset.make_initializable_iterator()
+        (x_next, y_next) = iterator.get_next()
+        sess.run(iterator.initializer)
 
-        batch_idxs = min(min(len(dataA), len(dataB)), args.train_size) // self.batch_size
         # lr = args.lr if epoch < args.epoch_step else args.lr*(args.epoch-epoch)/(args.epoch-args.epoch_step)
-
+        
         iteration = 0
-        for idx in range(0, batch_idxs):
-            # TODO, batch images
+        while True:
+            try:
+                X, Y = self.session.run([x_next, y_next])
 
-            # Update G network and record fake outputs
-            X2Y, Y2X, _ = self.sess.run([self.X2Y, self.Y2X, self.g_train], feed_dict={self.X: batch_imagesX, self.Y: batch_imagesY})
+                if x_train.shape[0] != BATCH_SIZE:
+                    break
 
-            # Update D network
-            _ = self.sess.run(self.d_train,feed_dict={self.X: batch_imagesX, self.Y: batch_imagesY, self.X2Y_sample: X2Y, self.X2Y_sample: Y2X}
+                # Update G network and record fake outputs
+                X2Y, Y2X, _ = self.sess.run([self.X2Y, self.Y2X, self.g_train], feed_dict={self.X: X, self.Y: Y})
 
-            # Print losses
-            if iteration % args.log_every == 0:
-                print('Iteration %d: Gen loss = %g | Discrim loss = %g' % (iteration, loss_g, loss_d))
-            # Save
-            if iteration % args.save_every == 0:
-                saver.save(sess, './dcgan_saved_model')
-            iteration += 1
+                # Update D network
+                _ = self.sess.run(self.d_train,feed_dict={self.X: batch_imagesX, self.Y: batch_imagesY, self.X2Y_sample: X2Y, self.X2Y_sample: Y2X})
+
+                # Print losses
+                if iteration % log_every == 0:
+                    print('Iteration %d: Gen loss = %g | Discrim loss = %g' % (iteration, loss_g, loss_d))
+                # Save
+                if iteration % save_every == 0:
+                    saver.save(sess, './dcgan_saved_model')
+                iteration += 1
+
+            except tf.errors.OutOfRangeError:
+                print('epoch ' + str( epoch) + ' end.')
+                break
 
 
 def test():
