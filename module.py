@@ -1,5 +1,3 @@
-import tensorflow as tf
-
 from ops import *
 
 gf_dim = 16
@@ -43,20 +41,21 @@ def generator_condnet(image_A, image_B, reuse=False, name="generator", resize_de
             y = instance_norm(conv2d(y, dim, ks, s, padding='VALID', name=name + '_c2'), name + '_bn2')
             return y + x
 
-        def cond_residule_block(x, y):
+        def cond_residule_block(x, y, name="cond_res"):
             _, h, w, c = x.get_shape().as_list()
             y = tf.image.resize_bilinear(y, (h, w))
 
             tmp = x
-            tmp = tf.concat([tmp, y], axis=-1)
-            tmp = convblock(tmp, c, ks=3, s=1, norm=batch_norm, activation=tf.nn.relu)
-            tmp = tf.concat([tmp, y], axis=-1)
-            tmp = convblock(tmp, c, ks=3, s=1, norm=batch_norm, activation=tf.nn.relu)
+            tmp = tf.concat([tmp, y], axis=-1, name=name + "_cc1")
+            tmp = convblock(tmp, c, ks=3, s=1, norm=batch_norm, activation=tf.nn.relu, name=name + "_cb1")
+            tmp = tf.concat([tmp, y], axis=-1, name=name + "_cc2")
+            tmp = convblock(tmp, c, ks=3, s=1, norm=batch_norm, activation=tf.nn.relu, name=name + "_cb2")
             return x + tmp
 
-        c1 = conv2d(image_A, gf_dim, ks=7, s=1)
-        c2 = convblock(c1, gf_dim * 2, ks=3, s=2)
-        c3 = convblock(c2, gf_dim * 4, ks=3, s=2)
+
+        c1 = conv2d(image_A, gf_dim, ks=7, s=1, name="g_c1_c1")
+        c2 = convblock(c1, gf_dim * 2, ks=3, s=2, name="g_c2_cb1")
+        c3 = convblock(c2, gf_dim * 4, ks=3, s=2, name="g_c3_cb2")
 
         r1 = residule_block(c3, gf_dim * 4, name='g_r1')
         r2 = residule_block(r1, gf_dim * 4, name='g_r2')
@@ -69,17 +68,17 @@ def generator_condnet(image_A, image_B, reuse=False, name="generator", resize_de
         r9 = residule_block(r8, gf_dim * 4, name='g_r9')
 
         if resize_deconv:
-            d1 = resize_deconvblock(r9, gf_dim * 2)
-            x1 = cond_residule_block(d1, image_B)
-            d2 = resize_deconvblock(x1, gf_dim)
-            x2 = cond_residule_block(d2, image_B)
-            d3 = convblock(x2, output_c_dim, ks=7, s=1)
+            d1 = resize_deconvblock(r9, gf_dim * 2, name="g_d1_")
+            x1 = cond_residule_block(d1, image_B, name="g_x1_")
+            d2 = resize_deconvblock(x1, gf_dim, name="g_d2_")
+            x2 = cond_residule_block(d2, image_B, name="g_x2_")
+            d3 = convblock(x2, output_c_dim, ks=7, s=1, name="g_d3_")
         else:
-            d1 = deconv2d(r9, gf_dim * 2, 3, 2, name='g_d1_dc')
-            x1 = cond_residule_block(d1, image_B)
-            d2 = deconv2d(x1, gf_dim, 3, 2, name='g_d2_dc')
-            x2 = cond_residule_block(d2, image_B)
-            d3 = convblock(x2, output_c_dim, ks=7, s=1)
+            d1 = deconv2d(r9, gf_dim * 2, 3, 2, name='g_d1_')
+            x1 = cond_residule_block(d1, image_B, name="g_x1_")
+            d2 = deconv2d(x1, gf_dim, 3, 2, name='g_d2_')
+            x2 = cond_residule_block(d2, image_B, name="g_x2_")
+            d3 = convblock(x2, output_c_dim, ks=7, s=1, name="g_d3_")
 
         return tf.nn.tanh(d3)
 

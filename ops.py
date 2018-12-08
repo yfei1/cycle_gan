@@ -1,6 +1,3 @@
-import math
-
-import numpy as np
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
 
@@ -37,18 +34,18 @@ def resize_deconvblock(input_, output_dim, name="resize_deconvblock", norm=batch
     with tf.variable_scope(name):
         # upsample the image
         input_ = tf.image.resize_bilinear(input_, (2 * h, 2 * w))
-        input_ = norm(input_)
-        input_ = activation(input_)
-        input_ = conv2d(input_, output_dim, ks=3, s=1)
+        input_ = norm(input_, name=name + "norm")
+        input_ = activation(input_, name=name + "actv")
+        input_ = conv2d(input_, output_dim, ks=3, s=1, name=name + "conv")
 
         return input_
 
 
 def convblock(input_, output_dim, ks=3, s=2, name="convblock", norm=batch_norm, activation=tf.nn.leaky_relu):
     with tf.variable_scope(name):
-        input_ = norm(input_)
-        input_ = activation(input_)
-        input_ = conv2d(input_, output_dim, ks=ks, s=s)
+        input_ = norm(input_, name=name + "norm")
+        input_ = activation(input_, name=name + "actv")
+        input_ = conv2d(input_, output_dim, ks=ks, s=s, name=name + "conv")
         return input_
 
 
