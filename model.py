@@ -9,10 +9,10 @@ from module import *
 
 
 BATCH_SIZE = 1
-INPUT_WIDTH = 256
+INPUT_WIDTH = 128
 INPUT_DIM = 3
-X_PATH = './datasets/apple2orange/trainA'
-Y_PATH = './datasets/apple2orange/trainB'
+X_PATH = './datasets/horse2zebra/trainA'
+Y_PATH = './datasets/horse2zebra/trainB'
 MODE = 'train'
 OUT = './output'
 log_every = 10
@@ -22,12 +22,12 @@ RESTORE = False
 epochs = 2
 learn_rate = 2e-4
 beta1 = 0.5
-MODE = 'train'
+MODE = 'test'
 
 class Model(object):
     def __init__(self):
         self.discriminator = discriminator
-        self.generator = generator_resnet
+        self.generator = generator_condnet
         # self.criterionGAN = mae_criterion
 
         self.X = tf.placeholder(tf.float32, [None, INPUT_WIDTH, INPUT_WIDTH, INPUT_DIM])

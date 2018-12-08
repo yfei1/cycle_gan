@@ -1,5 +1,3 @@
-import tensorflow as tf
-
 from ops import *
 
 gf_dim = 16
@@ -16,8 +14,9 @@ def discriminator(image, reuse=False, name="discriminator"):
             assert tf.get_variable_scope().reuse is False
 
         h0 = lrelu(conv2d(image, df_dim, name='d_h0_conv'))
+        n1 = nonlocalblock(h0, name='d_nonlocal1_')
         # h0 is (128 x 128 x self.df_dim)
-        h1 = lrelu(instance_norm(conv2d(h0, df_dim * 2, name='d_h1_conv'), 'd_bn1'))
+        h1 = lrelu(instance_norm(conv2d(n1, df_dim * 2, name='d_h1_conv'), 'd_bn1'))
         # h1 is (64 x 64 x self.df_dim*2)
         h2 = lrelu(instance_norm(conv2d(h1, df_dim * 4, name='d_h2_conv'), 'd_bn2'))
         # h2 is (32x 32 x self.df_dim*4)
@@ -27,59 +26,78 @@ def discriminator(image, reuse=False, name="discriminator"):
         # h4 is (32 x 32 x 1)
         return h4
 
+def discriminator_condnet(image_A, labels, reuse=False, name="discriminator", norm=group_norm):
+    with tf.variable_scope(name):
+        if reuse:
+            tf.get_variable_scope().reuse_variables()
+        else:
+            assert tf.get_variable_scope().reuse is False
+        
+        h1 = res_block(image_A, df_dim, norm=norm, name='d_h1', scaling=None)
+        n1 = nonlocalblock(h1, name='d_nonlocal1')
+        h2 = res_block(n1, df_dim * 2, norm=norm, name='d_h2', scaling='downsample')
+        h3 = res_block(h2, df_dim * 4, norm=norm, name='d_h3', scaling='downsample')
+        h4 = res_block(h3, df_dim * 8, norm=norm, name='d_h4', scaling='downsample')
+        
+        if labels is None:
+            h5 = convblock(h4, 1, ks=7, s=1, name='d_h5', norm=norm)
+            _, h, w, c = h5.get_shape().as_list()
+            h6 = tf.reshape(h5, shape=(-1, h*w*c))
+            h7 = tf.nn.relu(h6)
+            h8 = tf.layers.dense(h7, 1, name=name+'dense1')
+            return h8
+        else:
+            h5 = tf.nn.relu(h4)
+            # h6 -> (batch_size, df_dim * 8)
+            h6 = tf.reduce_sum(h5, [1, 2])
+            
+            # initialize variables
+            dense_u = tf.get_variable(name="u", shape=(1, df_dim * 8), initializer=tf.initializers.random_normal(), trainable=False)
+            dense = tf.layers.Dense(1, use_bias=False, activation=None, kernel_initializer=tf.initializers.random_normal())
+            embed_y = tf.get_variable('embeddings', shape=[2, df_dim * 8], initializer=tf.initializers.random_normal(), trainable=True)
+            embed_u = tf.get_variable("u", shape=(1, 2), initializer=tf.initializers.random_normal(), trainable=False)
+            
+            # dense
+            if not dense.built:
+                dense.build(h6.shape)
+            sigma, new_u = spectral_normalizer(dense.kernel, dense_u)
+            
+            with tf.control_dependencies([dense.kernel.assign(dense.kernel / sigma), dense_u.assign(new_u)]):
+                output = dense(h6)
+            
+            sigma, new_u = spectral_normalizer(embed_y, embed_u)
+            with tf.control_dependencies([embed_y.assign(embed_y / sigma), embed_u.assign(new_u)]):
+                w_y = tf.nn.embedding_lookup(embed_y, labels)
+                w_y = tf.reshape(w_y, (-1, df_dim * 8))
+                output += tf.reduce_sum(w_y * h, axis=1, keepdims=True)
+            
+            return output
 
-def generator_condnet(image_A, image_B, reuse=False, name="generator", resize_deconv=True):
+def generator_condnet(image_A, image_B, reuse=False, name="generator", norm=group_norm):
     with tf.variable_scope(name):
         if reuse:
             tf.get_variable_scope().reuse_variables()
         else:
             assert tf.get_variable_scope().reuse is False
 
-        def residule_block(x, dim, ks=3, s=1, name='res'):
-            p = int((ks - 1) / 2)
-            y = tf.pad(x, [[0, 0], [p, p], [p, p], [0, 0]], "REFLECT")
-            y = instance_norm(conv2d(y, dim, ks, s, padding='VALID', name=name + '_c1'), name + '_bn1')
-            y = tf.pad(tf.nn.relu(y), [[0, 0], [p, p], [p, p], [0, 0]], "REFLECT")
-            y = instance_norm(conv2d(y, dim, ks, s, padding='VALID', name=name + '_c2'), name + '_bn2')
-            return y + x
+        c1 = conv2d(image_A, gf_dim, ks=7, s=1, name="g_c1_c1", norm=norm)
+        c2 = convblock(c1, gf_dim * 2, ks=3, s=2, name="g_c2_cb1", norm=norm)
+        c3 = convblock(c2, gf_dim * 4, ks=3, s=2, name="g_c3_cb2", norm=norm)
+            
+        r1 = res_block(c3, gf_dim * 4, norm=norm, name='g_r1')
+        r2 = res_block(r1, gf_dim * 4, norm=norm, name='g_r2')
+        r3 = res_block(r2, gf_dim * 4, norm=norm, name='g_r3')
+        r4 = res_block(r3, gf_dim * 4, norm=norm, name='g_r4')
+        r5 = res_block(r4, gf_dim * 4, norm=norm, name='g_r5')
+        r6 = res_block(r5, gf_dim * 4, norm=norm, name='g_r6')
+        r7 = res_block(r6, gf_dim * 4, norm=norm, name='g_r7')
+        r8 = res_block(r7, gf_dim * 4, norm=norm, name='g_r8')
+        r9 = res_block(r8, gf_dim * 4, norm=norm, name='g_r9', y=image_B)
 
-        def cond_residule_block(x, y):
-            _, h, w, c = x.get_shape().as_list()
-            y = tf.image.resize_bilinear(y, (h, w))
-
-            tmp = x
-            tmp = tf.concat([tmp, y], axis=-1)
-            tmp = convblock(tmp, c, ks=3, s=1, norm=batch_norm, activation=tf.nn.relu)
-            tmp = tf.concat([tmp, y], axis=-1)
-            tmp = convblock(tmp, c, ks=3, s=1, norm=batch_norm, activation=tf.nn.relu)
-            return x + tmp
-
-        c1 = conv2d(image_A, gf_dim, ks=7, s=1)
-        c2 = convblock(c1, gf_dim * 2, ks=3, s=2)
-        c3 = convblock(c2, gf_dim * 4, ks=3, s=2)
-
-        r1 = residule_block(c3, gf_dim * 4, name='g_r1')
-        r2 = residule_block(r1, gf_dim * 4, name='g_r2')
-        r3 = residule_block(r2, gf_dim * 4, name='g_r3')
-        r4 = residule_block(r3, gf_dim * 4, name='g_r4')
-        r5 = residule_block(r4, gf_dim * 4, name='g_r5')
-        r6 = residule_block(r5, gf_dim * 4, name='g_r6')
-        r7 = residule_block(r6, gf_dim * 4, name='g_r7')
-        r8 = residule_block(r7, gf_dim * 4, name='g_r8')
-        r9 = residule_block(r8, gf_dim * 4, name='g_r9')
-
-        if resize_deconv:
-            d1 = resize_deconvblock(r9, gf_dim * 2)
-            x1 = cond_residule_block(d1, image_B)
-            d2 = resize_deconvblock(x1, gf_dim)
-            x2 = cond_residule_block(d2, image_B)
-            d3 = convblock(x2, output_c_dim, ks=7, s=1)
-        else:
-            d1 = deconv2d(r9, gf_dim * 2, 3, 2, name='g_d1_dc')
-            x1 = cond_residule_block(d1, image_B)
-            d2 = deconv2d(x1, gf_dim, 3, 2, name='g_d2_dc')
-            x2 = cond_residule_block(d2, image_B)
-            d3 = convblock(x2, output_c_dim, ks=7, s=1)
+        d1 = res_block(r9, gf_dim * 2, scaling='upsample', norm=norm, name='g_d1_', y=image_B)
+        n1 = nonlocalblock(d1, name='g_nonlocal1_')
+        d2 = res_block(n1, gf_dim, scaling='upsample', norm=norm, name='g_d2_', y=image_B)
+        d3 = convblock(d2, output_c_dim, ks=7, s=1, name='g_d3_', norm=norm)
 
         return tf.nn.tanh(d3)
 

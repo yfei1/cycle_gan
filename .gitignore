@@ -5,6 +5,8 @@
 datasets/*
 *.swp
 *.swo
+__pycache__/*
 ./ipynb/*
+*.tar.gz
 .ipynb_checkpoints/*
 
