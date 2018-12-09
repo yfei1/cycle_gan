@@ -94,9 +94,9 @@ def generator_condnet(image_A, image_B, reuse=False, name="generator", norm=grou
         r8 = res_block(r7, gf_dim * 4, norm=norm, name='g_r8')
         r9 = res_block(r8, gf_dim * 4, norm=norm, name='g_r9', y=image_B)
 
-        d1 = res_block(r9, gf_dim * 2, scaling='upsample', norm=norm, name='g_d1_', y=image_B)
+        d1 = res_block(r9, gf_dim * 2, scaling='upsample', norm=norm, name='g_d1_')
         n1 = nonlocalblock(d1, name='g_nonlocal1_')
-        d2 = res_block(n1, gf_dim, scaling='upsample', norm=norm, name='g_d2_', y=image_B)
+        d2 = res_block(n1, gf_dim, scaling='upsample', norm=norm, name='g_d2_')
         d3 = convblock(d2, output_c_dim, ks=7, s=1, name='g_d3_', norm=norm)
 
         return tf.nn.tanh(d3)
