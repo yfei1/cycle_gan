@@ -18,11 +18,11 @@ log_every = 10
 save_every = 200
 L1_lambda = 10
 RESTORE = False
-epochs = 200
+epochs = 20
 learn_rate = 2e-4
 beta1 = 0.5
 MODE = 'train'
-MODEL_PATH = './cycleGAN_unet'
+MODEL_PATH = './cycleGAN_resnet_bn'
 
 class Model(object):
     def __init__(self):
@@ -131,6 +131,7 @@ def load_last_checkpoint():
     saver.restore(sess, tf.train.latest_checkpoint('./'))
 
 def train():
+    print("Model will be saved at %s", MODEL_PATH)
     tqdm_epochs = tqdm(range(epochs))
     for epoch in tqdm_epochs:
         iterator = xy_Dataset.make_initializable_iterator()
