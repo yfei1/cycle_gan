@@ -8,21 +8,21 @@ from module import *
 # from utils import *
 
 
-BATCH_SIZE = 1
+BATCH_SIZE = 2
 INPUT_WIDTH = 128
 INPUT_DIM = 3
 X_PATH = './datasets/horse2zebra/trainA'
 Y_PATH = './datasets/horse2zebra/trainB'
-MODE = 'train'
 OUT = './output'
 log_every = 10
-save_every = 10
+save_every = 200
 L1_lambda = 10
 RESTORE = False
-epochs = 2
+epochs = 200
 learn_rate = 2e-4
 beta1 = 0.5
-MODE = 'test'
+MODE = 'train'
+MODEL_PATH = './cycleGAN_condnet'
 
 class Model(object):
     def __init__(self):
@@ -153,14 +153,14 @@ def train():
                     print('Iteration %d: Gen loss = %g | Discrim loss = %g' % (iteration, g_loss, d_loss))
                 # Save
                 if iteration % save_every == 0:
-                    saver.save(sess, './dcgan_saved_model')
+                    saver.save(sess, MODEL_PATH)
                 iteration += 1
 
             except tf.errors.OutOfRangeError:
                 print('epoch ' + str( epoch) + ' end.')
                 break
         
-        saver.save(sess, './dcgan_saved_model')
+        saver.save(sess, MODEL_PATH)
         # sess.run(iterator.initializer)
         # X, Y = sess.run([x_next/127.5-1, y_next/127.5-1])
 

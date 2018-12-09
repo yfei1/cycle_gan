@@ -80,7 +80,7 @@ def generator_condnet(image_A, image_B, reuse=False, name="generator", norm=grou
         else:
             assert tf.get_variable_scope().reuse is False
 
-        c1 = conv2d(image_A, gf_dim, ks=7, s=1, name="g_c1_c1", norm=norm)
+        c1 = conv2d(image_A, gf_dim, ks=7, s=1, name="g_c1_c1")
         c2 = convblock(c1, gf_dim * 2, ks=3, s=2, name="g_c2_cb1", norm=norm)
         c3 = convblock(c2, gf_dim * 4, ks=3, s=2, name="g_c3_cb2", norm=norm)
             

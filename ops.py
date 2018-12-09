@@ -91,24 +91,22 @@ def spectral_normalizer(W, u):
 
 
 def convblock(input_, output_dim, ks=3, s=2, name="convblock", norm=batch_norm, activation=tf.nn.leaky_relu):
-    with tf.variable_scope(name):
-        input_ = norm(input_, name=name + "norm")
-        input_ = activation(input_, name=name + "actv")
-        input_ = conv2d(input_, output_dim, ks=ks, s=s, name=name + "conv")
-        return input_
+    input_ = norm(input_, name=name + "norm")
+    input_ = activation(input_, name=name + "actv")
+    input_ = conv2d(input_, output_dim, ks=ks, s=s, name=name + "conv")
+    return input_
 
 
-def group_norm(x, gamma=1, beta=0, G=2, eps=1e−5, name="group_norm"):
-    with tf.variable_scope(name):
-        N, H, W, C = x.get_shape().as_list()
-
-        # Group Norm is C is divisible by 2, otherwise using layer norm
-        G = 2 if C % G == 0 else 1
-        x = tf.reshape(x, [N, H, W, C // G, G])   
-        mean, var = tf.nn.moments(x, [1, 2, 3], keep dims=True)
-        x = (x − mean) / tf.sqrt(var + eps)
-        x = tf.reshape(x, [N, H, W, C])
-        return x ∗ gamma + beta
+def group_norm(x, gamma=1, beta=0, G=4, eps=1e-5, name="group_norm"):
+    print(1111111111, x)
+    N, H, W, C = x.get_shape().as_list()
+    # Group Norm is C is divisible by 2, otherwise using layer norm
+    G = 2 if C % G == 0 else 1
+    x = tf.reshape(x, [N, H, W, C // G, G])   
+    mean, var = tf.nn.moments(x, [1, 2, 3], keep_dims=True)
+    x = (x - mean) / tf.sqrt(var + eps)
+    x = tf.reshape(x, shape=[N, H, W, C])
+    return x * gamma + beta
 
 
 def deconv2d(input_, output_dim, ks=4, s=2, stddev=0.02, name="deconv2d"):
