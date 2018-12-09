@@ -22,12 +22,12 @@ epochs = 200
 learn_rate = 2e-4
 beta1 = 0.5
 MODE = 'train'
-MODEL_PATH = './cycleGAN_condnet'
+MODEL_PATH = './cycleGAN_unet'
 
 class Model(object):
     def __init__(self):
         self.discriminator = discriminator
-        self.generator = generator_condnet
+        self.generator = generator_unet
         # self.criterionGAN = mae_criterion
 
         self.X = tf.placeholder(tf.float32, [None, INPUT_WIDTH, INPUT_WIDTH, INPUT_DIM])
@@ -170,9 +170,7 @@ def train():
                         }
                     )
                 
-                # Print losses
-                if iteration % log_every == 0:
-                    tqdm_epochs.set_description('Iteration %d: Gen loss = %g | Discrim loss = %g' % (iteration, g_loss, d_loss))
+                tqdm_epochs.set_description('Iteration %d: Gen loss = %g | Discrim loss = %g' % (iteration, g_loss, d_loss))
                 # Save
                 if iteration % save_every == 0:
                     saver.save(sess, MODEL_PATH)
