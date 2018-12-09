@@ -8,13 +8,16 @@ from module import *
 # from utils import *
 
 
-BATCH_SIZE = 2
+BATCH_SIZE = 1
+FID_BATCH_SIZE = 120
 INPUT_WIDTH = 128
 INPUT_DIM = 3
-X_PATH = './datasets/horse2zebra/trainA'
-Y_PATH = './datasets/horse2zebra/trainB'
+train_x_path = './datasets/horse2zebra/trainA'
+train_y_path = './datasets/horse2zebra/trainB'
+test_x_path = './datasets/horse2zebra/testA'
+test_y_path = './datasets/horse2zebra/testB'
 OUT = './output'
-log_every = 10
+log_every = 20
 save_every = 200
 L1_lambda = 10
 RESTORE = False
@@ -62,6 +65,11 @@ class Model(object):
         self.d_train = self.d_trainer()
         self.fid = self.fid_function()
 
+        # summary
+        self.g_loss_sum = tf.summary.scalar("g_loss", self.g_loss)
+        self.d_loss_sum = tf.summary.scalar("d_loss", self.d_loss)
+        self.fid_sum = tf.summary.scalar("fid", self.fid)
+
     def g_loss_function(self):
         g_loss_X2Y = tf.reduce_mean(tf.losses.mean_squared_error(self.d_X2Y, tf.ones_like(self.d_X2Y)))
         g_loss_Y2X = tf.reduce_mean(tf.losses.mean_squared_error(self.d_Y2X, tf.ones_like(self.d_Y2X)))
@@ -100,7 +108,7 @@ class Model(object):
         d2 = gan.eval.frechet_classifier_distance(real_resized2, fake_resized2, gan.eval.run_inception)
         return d1
 
-def buildDataset(x_path = X_PATH, y_path = Y_PATH):        
+def buildDataset(x_path, y_path, BATCH_SIZE):        
     x_Dataset = tf.data.Dataset.list_files( x_path + '/*.jpg')
     y_Dataset = tf.data.Dataset.list_files( y_path + '/*.jpg')
 
@@ -117,7 +125,10 @@ if not os.path.exists(OUT):
     os.makedirs(OUT+'/X2Y_OUT')
     os.makedirs(OUT+'/Y2X_OUT')
     
-xy_Dataset = buildDataset()
+train_Dataset = buildDataset(train_x_path, train_y_path, BATCH_SIZE)
+test_Dataset = buildDataset(test_x_path, test_y_path, BATCH_SIZE)
+fid_Dataset = buildDataset(test_x_path, test_y_path, FID_BATCH_SIZE)
+
 model = Model()
 # Start session
 sess = tf.Session()
@@ -131,10 +142,13 @@ def load_last_checkpoint():
     saver.restore(sess, tf.train.latest_checkpoint('./'))
 
 def train():
+    writer = tf.summary.FileWriter("./logs", sess.graph)
     print("Model will be saved at %s", MODEL_PATH)
     tqdm_epochs = tqdm(range(epochs))
+    d_loss_sum_epoch, g_loss_sum_epoch = None, None
     for epoch in tqdm_epochs:
-        iterator = xy_Dataset.make_initializable_iterator()
+        BATCH_SIZE = 1
+        iterator = train_Dataset.make_initializable_iterator()
         (x_next, y_next) = iterator.get_next()
         sess.run(iterator.initializer)
 
@@ -157,10 +171,10 @@ def train():
                         model.fake_labels: np.ones((BATCH_SIZE, 1), dtype=np.int32)
                         }
                     )
-                
+
                 # Update D network
-                d_loss, g_loss, _ = sess.run([
-                    model.d_loss, model.g_loss, model.d_train],
+                d_loss, g_loss, _, d_loss_summary, g_loss_summary = sess.run([
+                    model.d_loss, model.g_loss, model.d_train, model.d_loss_sum, model.g_loss_sum],
                     feed_dict={
                         model.X: X, 
                         model.Y: Y, 
@@ -170,8 +184,14 @@ def train():
                         model.fake_labels: np.zeros((BATCH_SIZE, 1), dtype=np.int32)
                         }
                     )
+                d_loss_sum_epoch, g_loss_sum_epoch = d_loss_summary, g_loss_summary
                 
                 tqdm_epochs.set_description('Iteration %d: Gen loss = %g | Discrim loss = %g' % (iteration, g_loss, d_loss))
+                
+                if epoch == 0 and iteration % log_every == 0:
+                    writer.add_summary(d_loss_summary, iteration)
+                    writer.add_summary(g_loss_summary, iteration)
+
                 # Save
                 if iteration % save_every == 0:
                     saver.save(sess, MODEL_PATH)
@@ -181,15 +201,22 @@ def train():
                 break
         
         saver.save(sess, MODEL_PATH)
-        # sess.run(iterator.initializer)
-        # X, Y = sess.run([x_next/127.5-1, y_next/127.5-1])
 
-        # fid_ = sess.run(model.fid, feed_dict={model.X: X, model.Y: Y})
-        # print('**** INCEPTION DISTANCE: %g ****' % fid_)
+        # summary of the last iteration of the epoch
+        writer.add_summary(d_loss_sum_epoch, epoch)
+        writer.add_summary(g_loss_sum_epoch, epoch)
+
+        fid_iterator = fid_Dataset.make_initializable_iterator()
+        (x_next, y_next) = fid_iterator.get_next()
+        sess.run(fid_iterator.initializer)
+        X, Y = sess.run([x_next/127.5-1, y_next/127.5-1])
+        fid, fid_sum = sess.run([model.fid, model.fid_sum], feed_dict={model.X: X, model.Y: Y})
+        print('**** INCEPTION DISTANCE: %g ****' % fid)
+        writer.add_summary(fid_sum, epoch)
 
 
 def test():
-    iterator = xy_Dataset.make_initializable_iterator()
+    iterator = test_Dataset.make_initializable_iterator()
     (x_next, y_next) = iterator.get_next()
     sess.run(iterator.initializer)
     X, Y = sess.run([x_next/127.5-1, y_next/127.5-1])
