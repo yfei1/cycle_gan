@@ -8,5 +8,8 @@ datasets/*
 __pycache__/*
 ./ipynb/*
 *.tar.gz
+cycleGAN_*
+checkpoint/*
+checkpoint
 .ipynb_checkpoints/*
 

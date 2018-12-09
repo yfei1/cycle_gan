@@ -3,7 +3,7 @@ import numpy as np
 import os
 from scipy.misc import imsave
 import tensorflow.contrib.gan as gan
-
+from tqdm import tqdm
 from module import *
 # from utils import *
 
@@ -22,12 +22,12 @@ epochs = 200
 learn_rate = 2e-4
 beta1 = 0.5
 MODE = 'train'
-MODEL_PATH = './cycleGAN_condnet'
+MODEL_PATH = './cycleGAN_unet'
 
 class Model(object):
     def __init__(self):
         self.discriminator = discriminator
-        self.generator = generator_condnet
+        self.generator = generator_unet
         # self.criterionGAN = mae_criterion
 
         self.X = tf.placeholder(tf.float32, [None, INPUT_WIDTH, INPUT_WIDTH, INPUT_DIM])
@@ -81,7 +81,7 @@ class Model(object):
         return g_solver
 
     def d_trainer(self):
-        d_solver = tf.train.AdamOptimizer(learn_rate, beta1).minimize(self.d_loss, var_list=self.d_vars)
+        d_solver = tf.train.AdamOptimizer(learn_rate/2, beta1).minimize(self.d_loss, var_list=self.d_vars)
         return d_solver
 
     def fid_function(self):
@@ -127,8 +127,8 @@ def load_last_checkpoint():
     saver.restore(sess, tf.train.latest_checkpoint('./'))
 
 def train():
-    for epoch in range(epochs):
-        print('========================== EPOCH %d  ==========================' % epoch)
+    tqdm_epochs = tqdm(range(epochs))
+    for epoch in tqdm_epochs:
         iterator = xy_Dataset.make_initializable_iterator()
         (x_next, y_next) = iterator.get_next()
         sess.run(iterator.initializer)
@@ -148,9 +148,7 @@ def train():
                 # Update D network
                 d_loss, g_loss, _ = sess.run([model.d_loss, model.g_loss, model.d_train],feed_dict={model.X: X, model.Y: Y, model.X2Y_sample: X2Y, model.Y2X_sample: Y2X})
                 
-                # Print losses
-                if iteration % log_every == 0:
-                    print('Iteration %d: Gen loss = %g | Discrim loss = %g' % (iteration, g_loss, d_loss))
+                tqdm_epochs.set_description('Iteration %d: Gen loss = %g | Discrim loss = %g' % (iteration, g_loss, d_loss))
                 # Save
                 if iteration % save_every == 0:
                     saver.save(sess, MODEL_PATH)
