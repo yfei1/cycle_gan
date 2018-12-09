@@ -45,6 +45,7 @@ def res_block(input_, output_dim, y=None, name="res_block_", norm=batch_norm, ac
         if scaling == "upsample":
             t = tf.image.resize_bilinear(t, (2 * h, 2 * w))
             input_ = tf.image.resize_bilinear(input_, (2 * h, 2 * w))
+            input_ = convblock(input_, output_dim, ks=1, s=1)
 
         t = conv2d(t, output_dim, ks=3, s=1, name=name+"conv1")
         
@@ -56,13 +57,13 @@ def res_block(input_, output_dim, y=None, name="res_block_", norm=batch_norm, ac
         t = norm(t, name=name+"norm2")
         t = activation(t, name=name+"actv2")
 
-        if scaling == "downsample" and conv:
+        if scaling == "downsample" and down_conv:
             t = conv2d(t, output_dim, ks=3, s=2, name=name+"conv2")
             input_ = tf.layers.average_pooling2d(input_, pool_size=2, strides=2, padding='same', name=name+"ap_in1")
         else:
             t = conv2d(t, output_dim, ks=3, s=1, name=name+"conv2")
 
-        if scaling == "downsample" and not conv:
+        if scaling == "downsample" and not down_conv:
             t = tf.layers.average_pooling2d(t, pool_size=2, strides=2, padding='same', name=name+"ap_r1")
             input_ = tf.layers.average_pooling2d(input_, pool_size=2, strides=2, padding='same', name=name+"ap_in1")
 
@@ -98,7 +99,6 @@ def convblock(input_, output_dim, ks=3, s=2, name="convblock", norm=batch_norm, 
 
 
 def group_norm(x, gamma=1, beta=0, G=4, eps=1e-5, name="group_norm"):
-    print(1111111111, x)
     N, H, W, C = x.get_shape().as_list()
     # Group Norm is C is divisible by 2, otherwise using layer norm
     G = 2 if C % G == 0 else 1
