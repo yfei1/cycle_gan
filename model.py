@@ -3,7 +3,7 @@ import numpy as np
 import os
 from scipy.misc import imsave
 import tensorflow.contrib.gan as gan
-
+from tqdm import tqdm
 from module import *
 # from utils import *
 
@@ -34,19 +34,23 @@ class Model(object):
         self.Y = tf.placeholder(tf.float32, [None, INPUT_WIDTH, INPUT_WIDTH, INPUT_DIM])
         self.X2Y_sample = tf.placeholder(tf.float32, [None, INPUT_WIDTH, INPUT_WIDTH, INPUT_DIM])
         self.Y2X_sample = tf.placeholder(tf.float32, [None, INPUT_WIDTH, INPUT_WIDTH, INPUT_DIM])
+        
+        self.true_labels = tf.placeholder(tf.int32, [None, 1])
+        self.fake_labels = tf.placeholder(tf.int32, [None, 1])
 
         self.X2Y = self.generator(self.X, self.Y, False, name="generatorX2Y")
         self.X2Y2X = self.generator(self.X2Y, self.X, False, name="generatorY2X")
         self.Y2X = self.generator(self.Y, self.X, True, name="generatorY2X")
         self.Y2X2Y = self.generator(self.Y2X, self.Y, True, name="generatorX2Y")
 
-        self.d_X2Y = self.discriminator(self.X2Y, reuse=False, name="discriminatorY")
-        self.d_Y2X = self.discriminator(self.Y2X, reuse=False, name="discriminatorX")
+        # TODO: true is 0, fake is 1
+        self.d_X2Y = self.discriminator(self.X2Y, self.fake_labels, reuse=False, name="discriminatorY")
+        self.d_Y2X = self.discriminator(self.Y2X, self.fake_labels, reuse=False, name="discriminatorX")
 
-        self.d_Y = self.discriminator(self.Y, reuse=True, name="discriminatorY")
-        self.d_X = self.discriminator(self.X, reuse=True, name="discriminatorX")
-        self.d_Y2X_sample = self.discriminator(self.Y2X_sample, reuse=True, name="discriminatorY")
-        self.d_X2Y_sample = self.discriminator(self.X2Y_sample, reuse=True, name="discriminatorX")
+        self.d_Y = self.discriminator(self.Y, self.true_labels, reuse=True, name="discriminatorY")
+        self.d_X = self.discriminator(self.X, self.true_labels, reuse=True, name="discriminatorX")
+        self.d_Y2X_sample = self.discriminator(self.Y2X_sample, self.fake_labels, reuse=True, name="discriminatorY")
+        self.d_X2Y_sample = self.discriminator(self.X2Y_sample, self.fake_labels, reuse=True, name="discriminatorX")
 
         # Declare losses, optimizers(trainers) and fid for evaluation
         t_vars = tf.trainable_variables()
@@ -81,7 +85,7 @@ class Model(object):
         return g_solver
 
     def d_trainer(self):
-        d_solver = tf.train.AdamOptimizer(learn_rate, beta1).minimize(self.d_loss, var_list=self.d_vars)
+        d_solver = tf.train.AdamOptimizer(learn_rate/2, beta1).minimize(self.d_loss, var_list=self.d_vars)
         return d_solver
 
     def fid_function(self):
@@ -127,8 +131,8 @@ def load_last_checkpoint():
     saver.restore(sess, tf.train.latest_checkpoint('./'))
 
 def train():
-    for epoch in range(epochs):
-        print('========================== EPOCH %d  ==========================' % epoch)
+    tqdm_epochs = tqdm(range(epochs))
+    for epoch in tqdm_epochs:
         iterator = xy_Dataset.make_initializable_iterator()
         (x_next, y_next) = iterator.get_next()
         sess.run(iterator.initializer)
@@ -143,21 +147,38 @@ def train():
                     break
 
                 # Update G network and record fake outputs
-                X2Y, Y2X, _ = sess.run([model.X2Y, model.Y2X, model.g_train], feed_dict={model.X: X, model.Y: Y})
+                X2Y, Y2X, _ = sess.run([
+                    model.X2Y, model.Y2X, model.g_train], 
+                    feed_dict={
+                        model.X: X, 
+                        model.Y: Y,
+                        model.true_labels: np.ones((BATCH_SIZE, 1), dtype=np.int32),
+                        model.fake_labels: np.ones((BATCH_SIZE, 1), dtype=np.int32)
+                        }
+                    )
                 
                 # Update D network
-                d_loss, g_loss, _ = sess.run([model.d_loss, model.g_loss, model.d_train],feed_dict={model.X: X, model.Y: Y, model.X2Y_sample: X2Y, model.Y2X_sample: Y2X})
+                d_loss, g_loss, _ = sess.run([
+                    model.d_loss, model.g_loss, model.d_train],
+                    feed_dict={
+                        model.X: X, 
+                        model.Y: Y, 
+                        model.X2Y_sample: X2Y, 
+                        model.Y2X_sample: Y2X,
+                        model.true_labels: np.ones((BATCH_SIZE, 1), dtype=np.int32),
+                        model.fake_labels: np.zeros((BATCH_SIZE, 1), dtype=np.int32)
+                        }
+                    )
                 
                 # Print losses
                 if iteration % log_every == 0:
-                    print('Iteration %d: Gen loss = %g | Discrim loss = %g' % (iteration, g_loss, d_loss))
+                    tqdm_epochs.set_description('Iteration %d: Gen loss = %g | Discrim loss = %g' % (iteration, g_loss, d_loss))
                 # Save
                 if iteration % save_every == 0:
                     saver.save(sess, MODEL_PATH)
                 iteration += 1
 
             except tf.errors.OutOfRangeError:
-                print('epoch ' + str( epoch) + ' end.')
                 break
         
         saver.save(sess, MODEL_PATH)

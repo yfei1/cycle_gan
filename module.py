@@ -5,7 +5,7 @@ df_dim = 16
 output_c_dim = 3
 is_training = True
 
-def discriminator(image, reuse=False, name="discriminator"):
+def discriminator(image, labels, reuse=False, name="discriminator"):
     with tf.variable_scope(name):
         # image is 256 x 256 x input_c_dim
         if reuse:
@@ -33,7 +33,7 @@ def discriminator_condnet(image_A, labels, reuse=False, name="discriminator", no
         else:
             assert tf.get_variable_scope().reuse is False
         
-        h1 = res_block(image_A, df_dim, norm=norm, name='d_h1', scaling=None)
+        h1 = res_block(image_A, df_dim, norm=norm, name='d_h1', scaling='downsample')
         n1 = nonlocalblock(h1, name='d_nonlocal1')
         h2 = res_block(n1, df_dim * 2, norm=norm, name='d_h2', scaling='downsample')
         h3 = res_block(h2, df_dim * 4, norm=norm, name='d_h3', scaling='downsample')
@@ -52,10 +52,10 @@ def discriminator_condnet(image_A, labels, reuse=False, name="discriminator", no
             h6 = tf.reduce_sum(h5, [1, 2])
             
             # initialize variables
-            dense_u = tf.get_variable(name="u", shape=(1, df_dim * 8), initializer=tf.initializers.random_normal(), trainable=False)
+            dense_u = tf.get_variable(name="dense_u", shape=(1, df_dim * 8), initializer=tf.initializers.random_normal(), trainable=False)
             dense = tf.layers.Dense(1, use_bias=False, activation=None, kernel_initializer=tf.initializers.random_normal())
             embed_y = tf.get_variable('embeddings', shape=[2, df_dim * 8], initializer=tf.initializers.random_normal(), trainable=True)
-            embed_u = tf.get_variable("u", shape=(1, 2), initializer=tf.initializers.random_normal(), trainable=False)
+            embed_u = tf.get_variable("embed_u", shape=(1, 2), initializer=tf.initializers.random_normal(), trainable=False)
             
             # dense
             if not dense.built:
@@ -64,12 +64,11 @@ def discriminator_condnet(image_A, labels, reuse=False, name="discriminator", no
             
             with tf.control_dependencies([dense.kernel.assign(dense.kernel / sigma), dense_u.assign(new_u)]):
                 output = dense(h6)
-            
             sigma, new_u = spectral_normalizer(embed_y, embed_u)
             with tf.control_dependencies([embed_y.assign(embed_y / sigma), embed_u.assign(new_u)]):
                 w_y = tf.nn.embedding_lookup(embed_y, labels)
                 w_y = tf.reshape(w_y, (-1, df_dim * 8))
-                output += tf.reduce_sum(w_y * h, axis=1, keepdims=True)
+                output += tf.reduce_sum(w_y * h6, axis=1, keepdims=True)
             
             return output
 
@@ -91,10 +90,10 @@ def generator_condnet(image_A, image_B, reuse=False, name="generator", norm=grou
         r5 = res_block(r4, gf_dim * 4, norm=norm, name='g_r5')
         r6 = res_block(r5, gf_dim * 4, norm=norm, name='g_r6')
         r7 = res_block(r6, gf_dim * 4, norm=norm, name='g_r7')
-        r8 = res_block(r7, gf_dim * 4, norm=norm, name='g_r8')
-        r9 = res_block(r8, gf_dim * 4, norm=norm, name='g_r9', y=image_B)
+        r8 = res_block(r7, gf_dim * 4, norm=norm, name='g_r8', y=image_B)
+        # r9 = res_block(r8, gf_dim * 4, norm=norm, name='g_r9')
 
-        d1 = res_block(r9, gf_dim * 2, scaling='upsample', norm=norm, name='g_d1_')
+        d1 = res_block(r8, gf_dim * 2, scaling='upsample', norm=norm, name='g_d1_')
         n1 = nonlocalblock(d1, name='g_nonlocal1_')
         d2 = res_block(n1, gf_dim, scaling='upsample', norm=norm, name='g_d2_')
         d3 = convblock(d2, output_c_dim, ks=7, s=1, name='g_d3_', norm=norm)

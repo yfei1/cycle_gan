@@ -45,7 +45,7 @@ def res_block(input_, output_dim, y=None, name="res_block_", norm=batch_norm, ac
         if scaling == "upsample":
             t = tf.image.resize_bilinear(t, (2 * h, 2 * w))
             input_ = tf.image.resize_bilinear(input_, (2 * h, 2 * w))
-            input_ = convblock(input_, output_dim, ks=1, s=1)
+        input_ = convblock(input_, output_dim, ks=1, s=1)
 
         t = conv2d(t, output_dim, ks=3, s=1, name=name+"conv1")
         
@@ -83,12 +83,13 @@ def resize_deconvblock(input_, output_dim, name="resize_deconvblock", norm=batch
 
         return input_
 
-def spectral_normalizer(W, u):
-    v = tf.nn.l2_normalize(tf.matmul(u, W))
-    _u = tf.nn.l2_normalize(tf.matmul(v, W, transpose_b=True))
-    sigma = tf.matmul(tf.matmul(_u, W), v, transpose_b=True)
-    sigma = tf.reduce_sum(sigma)
-    return sigma, _u    
+def spectral_normalizer(W, u, name="sn"):
+    with tf.variable_scope(name):
+        v = tf.nn.l2_normalize(tf.matmul(u, W))
+        _u = tf.nn.l2_normalize(tf.matmul(v, W, transpose_b=True))
+        sigma = tf.matmul(tf.matmul(_u, W), v, transpose_b=True)
+        sigma = tf.reduce_sum(sigma)
+        return sigma, _u    
 
 
 def convblock(input_, output_dim, ks=3, s=2, name="convblock", norm=batch_norm, activation=tf.nn.leaky_relu):
