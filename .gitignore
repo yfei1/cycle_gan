@@ -12,6 +12,8 @@ checkpoint
 checkpoint/*
 cycleGAN_*
 output
+logs
+logs/*
 output/*
 .ipynb_checkpoints/*
 

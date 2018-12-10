@@ -16,16 +16,16 @@ train_x_path = './datasets/horse2zebra/trainA'
 train_y_path = './datasets/horse2zebra/trainB'
 test_x_path = './datasets/horse2zebra/testA'
 test_y_path = './datasets/horse2zebra/testB'
-OUT = './output'
+OUT = './output/resnet_in'
 log_every = 20
 save_every = 200
 L1_lambda = 10
 RESTORE = False
-epochs = 20
+epochs = 10
 learn_rate = 2e-4
 beta1 = 0.5
 MODE = 'train'
-MODEL_PATH = './cycleGAN_resnet_bn'
+MODEL_PATH = './cycleGAN_resnet_in'
 
 class Model(object):
     def __init__(self):
@@ -130,8 +130,10 @@ test_Dataset = buildDataset(test_x_path, test_y_path, BATCH_SIZE, shuffle = Fals
 fid_Dataset = buildDataset(test_x_path, test_y_path, FID_BATCH_SIZE, shuffle = False)
 
 model = Model()
+config = tf.ConfigProto()
+config.gpu_options.allow_growth = True
 # Start session
-sess = tf.Session()
+sess = tf.Session(config=config)
 sess.run(tf.global_variables_initializer())
 
 # For saving/loading models
@@ -206,13 +208,14 @@ def train():
         writer.add_summary(d_loss_sum_epoch, epoch)
         writer.add_summary(g_loss_sum_epoch, epoch)
 
-        fid_iterator = fid_Dataset.make_initializable_iterator()
-        (x_next, y_next) = fid_iterator.get_next()
-        sess.run(fid_iterator.initializer)
-        X, Y = sess.run([x_next/127.5-1, y_next/127.5-1])
-        fid, fid_sum = sess.run([model.fid, model.fid_sum], feed_dict={model.X: X, model.Y: Y})
-        print('**** INCEPTION DISTANCE: %g ****' % fid)
-        writer.add_summary(fid_sum, epoch)
+        with tf.device('/cpu:0'):
+            fid_iterator = fid_Dataset.make_initializable_iterator()
+            (x_next, y_next) = fid_iterator.get_next()
+            sess.run(fid_iterator.initializer)
+            X, Y = sess.run([x_next/127.5-1, y_next/127.5-1])
+            fid, fid_sum = sess.run([model.fid, model.fid_sum], feed_dict={model.X: X, model.Y: Y})
+            print('**** INCEPTION DISTANCE: %g ****' % fid)
+            writer.add_summary(fid_sum, epoch)
 
 
 def test():
