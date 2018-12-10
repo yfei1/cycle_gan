@@ -105,26 +105,45 @@ class Model(object):
         d2 = gan.eval.frechet_classifier_distance(real_resized2, fake_resized2, gan.eval.run_inception)
         return d1
 
-def buildDataset(x_path, y_path, BATCH_SIZE, shuffle = None):        
-    x_Dataset = tf.data.Dataset.list_files( x_path + '/*.jpg', shuffle = shuffle)
-    y_Dataset = tf.data.Dataset.list_files( y_path + '/*.jpg', shuffle = shuffle)
+def buildDataset(x_path, y_path, BATCH_SIZE, weShuffle = True):        
+    x_files = glob.glob(x_path + "/*.jpg")  
+    y_files = glob.glob(y_path + "/*.jpg")
+    num_of_files = min(len(x_files), len(y_files))
+    
+    
+    if weShuffle:
+        shuffle(x_files)
+        shuffle(y_files)
 
-    x_images = x_Dataset.map(lambda x: tf.image.resize_images(tf.image.decode_jpeg(tf.read_file(x), channels = INPUT_DIM), [INPUT_WIDTH, INPUT_WIDTH]))
-    y_images = y_Dataset.map(lambda x: tf.image.resize_images(tf.image.decode_jpeg(tf.read_file(x), channels = INPUT_DIM), [INPUT_WIDTH, INPUT_WIDTH]))
-
-    xy_images = tf.data.Dataset.zip((x_images, y_images))
-    xy_Dataset = xy_images.batch(BATCH_SIZE)
-    return xy_Dataset
-
+    x_images = [imresize(imread(x), (INPUT_WIDTH,INPUT_WIDTH)) for x in x_files]
+    x_images = x_images[0:num_of_files]
+    x_images = split(x_images,BATCH_SIZE)
+    x_images = x_images[0:len(x_images)]
+    
+    y_images = [imresize(imread(x), (INPUT_WIDTH,INPUT_WIDTH)) for x in y_files]
+    y_images = y_images[0:num_of_files]    
+    y_images = split(x_images,BATCH_SIZE)
+    y_images = x_images[0:len(y_images)]
+ 
+    return np.array(x_images), np.array(y_images)
+    
+def split(arr, size):
+     arrs = []
+     while len(arr) > size:
+         pice = arr[:size]
+         arrs.append(pice)
+         arr   = arr[size:]
+     arrs.append(arr)
+     return arrs
 
 if not os.path.exists(OUT):
     os.makedirs(OUT)
     os.makedirs(OUT+'/X2Y_OUT')
     os.makedirs(OUT+'/Y2X_OUT')
     
-train_Dataset = buildDataset(train_x_path, train_y_path, BATCH_SIZE)
-test_Dataset = buildDataset(test_x_path, test_y_path, BATCH_SIZE, shuffle = False)
-fid_Dataset = buildDataset(test_x_path, test_y_path, FID_BATCH_SIZE, shuffle = False)
+train_X, train_Y = buildDataset(train_x_path, train_y_path, BATCH_SIZE)
+test_X, test_Y = buildDataset(test_x_path, test_y_path, BATCH_SIZE, weShuffle = False)
+fid_X, fid_Y = buildDataset(test_x_path, test_y_path, FID_BATCH_SIZE, weShuffle = False)
 
 model = Model()
 config = tf.ConfigProto()
@@ -151,22 +170,15 @@ def train():
     epochs_d_loss = []
     epochs_g_loss = []
     epochs_fid = []
-    
-    iterator = train_Dataset.make_initializable_iterator()
-    (x_next, y_next) = iterator.get_next()
-    
-    fid_iterator = fid_Dataset.make_initializable_iterator()
-    (fid_x_next, fid_y_next) = fid_iterator.get_next()
 
     for epoch in tqdm_epochs:
         BATCH_SIZE = 1
-        sess.run(iterator.initializer)
 
         iteration = 0
-        while True:
+        for i in range(len(train_X)):
             try:
-                x_next, y_next = x_next/127.5-1, y_next/127.5-1
-                X, Y = sess.run([x_next, y_next])
+                X = train_X[i]/127.5-1
+                Y = train_Y[i]/127.5-1
 
                 if X.shape[0] != BATCH_SIZE:
                     break
@@ -207,9 +219,9 @@ def train():
         
         saver.save(sess, MODEL_PATH)
 
-        with tf.device('/cpu:0'):
-            sess.run(fid_iterator.initializer)
-            fid_X, fid_Y = sess.run([fid_x_next/127.5-1, fid_y_next/127.5-1])
+        with tf.device('/cpu:0'):            
+            fid_X = fid_X[0]/127.5-1
+            fid_Y = fid_X[0]/127.5-1
             fid = sess.run(model.fid, feed_dict={model.X: fid_X, model.Y: fid_Y})
             print('**** INCEPTION DISTANCE: %g ****' % fid)
 
@@ -233,10 +245,8 @@ def train():
 
 
 def test():
-    iterator = test_Dataset.make_initializable_iterator()
-    (x_next, y_next) = iterator.get_next()
-    sess.run(iterator.initializer)
-    X, Y = sess.run([x_next/127.5-1, y_next/127.5-1])
+    X = test_X[i]/127.5-1
+    Y = test_Y[i]/127.5-1
     
     gen_y, gen_x = sess.run([model.X2Y, model.Y2X], feed_dict={model.X: X, model.Y: Y})    
     
