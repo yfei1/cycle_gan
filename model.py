@@ -140,6 +140,7 @@ def load_last_checkpoint():
     saver.restore(sess, tf.train.latest_checkpoint('./'))
 
 def train():
+    BATCH_SIZE = 1
     # writer = tf.summary.FileWriter("./logs", sess.graph)
     print("Model will be saved at %s", MODEL_PATH)
     tqdm_epochs = tqdm(range(epochs))
@@ -166,7 +167,6 @@ def train():
     fid_iterator = fid_Dataset.make_one_shot_iterator()
     (fid_x_next, fid_y_next) = fid_iterator.get_next()
 
-    BATCH_SIZE = 1
     sess.run(iterator.initializer)
     sess.run(fid_iterator.initializer)
 
