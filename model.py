@@ -17,13 +17,8 @@ train_x_path = './datasets/horse2zebra/trainA'
 train_y_path = './datasets/horse2zebra/trainB'
 test_x_path = './datasets/horse2zebra/testA'
 test_y_path = './datasets/horse2zebra/testB'
-<<<<<<< HEAD
 OUT = './output/resnet_in'
 log_every = 20
-=======
-OUT = './output'
-log_every = 10
->>>>>>> 8366ac851809a358b414174f1bf9270a815efad1
 save_every = 200
 L1_lambda = 10
 RESTORE = False
@@ -36,7 +31,7 @@ MODEL_PATH = './cycleGAN_resnet_in'
 class Model(object):
     def __init__(self):
         self.discriminator = discriminator
-        self.generator = generator_unet
+        self.generator = generator_resnet
         # self.criterionGAN = mae_criterion
 
         self.X = tf.placeholder(tf.float32, [None, INPUT_WIDTH, INPUT_WIDTH, INPUT_DIM])
@@ -150,9 +145,6 @@ def train():
     tqdm_epochs = tqdm(range(epochs))
 
     d_loss_last, g_loss_last = None, None
-    epoch_0_iteration = []
-    epoch_0_d_loss = []
-    epoch_0_g_loss = []
 
     epochs_iteration = []
     epochs_d_loss = []
@@ -201,10 +193,6 @@ def train():
                 
                 tqdm_epochs.set_description('Iteration %d: Gen loss = %g | Discrim loss = %g' % (iteration, g_loss, d_loss))
                 d_loss_last, g_loss_last = d_loss, g_loss
-                if epoch == 0 and iteration % log_every == 0:
-                    epoch_0_iteration.append(iteration)
-                    epoch_0_d_loss.append(d_loss)
-                    epoch_0_g_loss.append(g_loss)
 
                 # Save
                 if iteration % save_every == 0:
@@ -224,15 +212,6 @@ def train():
             fid = sess.run(model.fid, feed_dict={model.X: X, model.Y: Y})
             print('**** INCEPTION DISTANCE: %g ****' % fid)
 
-        if epoch == 0:
-            plt.grid()
-            plt.plot(epoch_0_iteration, epoch_0_d_loss,'r', label='change of d_loss in the first epoch')
-            plt.savefig("plots/epoch0_d_loss.jpg")
-            plt.clf()
-            plt.grid()
-            plt.plot(epoch_0_iteration, epoch_0_g_loss,'r', label='change of g_loss in the first epoch')
-            plt.savefig("plots/epoch0_g_loss.jpg")
-            plt.clf()
         epochs_iteration.append(epoch)
         epochs_d_loss.append(d_loss_last)
         epochs_g_loss.append(g_loss_last)
@@ -240,17 +219,16 @@ def train():
 
     # end of all epochs
     plt.grid()
-    plt.plot(epochs_iteration, epochs_d_loss,'r', label='change of d_loss in all epochs')
+    plt.plot(epochs_iteration, epochs_d_loss, label='change of d_loss in all epochs')
     plt.savefig("plots/epochs_d_loss.jpg")
     plt.clf()
     plt.grid()
-    plt.plot(epochs_iteration, epochs_g_loss,'r', label='change of g_loss in all epochs')
+    plt.plot(epochs_iteration, epochs_g_loss, label='change of g_loss in all epochs')
     plt.savefig("plots/epochs_g_loss.jpg")
     plt.clf()
     plt.grid()
     plt.plot(epochs_iteration, epochs_fid,'r', label='change of fid in all epochs')
     plt.savefig("plots/epochs_fid.jpg")
->>>>>>> 8366ac851809a358b414174f1bf9270a815efad1
 
 
 def test():
