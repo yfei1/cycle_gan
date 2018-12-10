@@ -104,9 +104,9 @@ class Model(object):
         d2 = gan.eval.frechet_classifier_distance(real_resized2, fake_resized2, gan.eval.run_inception)
         return d1
 
-def buildDataset(x_path, y_path, BATCH_SIZE):        
-    x_Dataset = tf.data.Dataset.list_files( x_path + '/*.jpg')
-    y_Dataset = tf.data.Dataset.list_files( y_path + '/*.jpg')
+def buildDataset(x_path, y_path, BATCH_SIZE, shuffle = None):        
+    x_Dataset = tf.data.Dataset.list_files( x_path + '/*.jpg', shuffle = shuffle)
+    y_Dataset = tf.data.Dataset.list_files( y_path + '/*.jpg', shuffle = shuffle)
 
     x_images = x_Dataset.map(lambda x: tf.image.resize_images(tf.image.decode_jpeg(tf.read_file(x), channels = INPUT_DIM), [INPUT_WIDTH, INPUT_WIDTH]))
     y_images = y_Dataset.map(lambda x: tf.image.resize_images(tf.image.decode_jpeg(tf.read_file(x), channels = INPUT_DIM), [INPUT_WIDTH, INPUT_WIDTH]))
@@ -122,8 +122,8 @@ if not os.path.exists(OUT):
     os.makedirs(OUT+'/Y2X_OUT')
     
 train_Dataset = buildDataset(train_x_path, train_y_path, BATCH_SIZE)
-test_Dataset = buildDataset(test_x_path, test_y_path, BATCH_SIZE)
-fid_Dataset = buildDataset(test_x_path, test_y_path, FID_BATCH_SIZE)
+test_Dataset = buildDataset(test_x_path, test_y_path, BATCH_SIZE, shuffle = False)
+fid_Dataset = buildDataset(test_x_path, test_y_path, FID_BATCH_SIZE, shuffle = False)
 
 model = Model()
 # Start session
