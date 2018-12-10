@@ -123,9 +123,7 @@ if not os.path.exists(OUT):
     os.makedirs(OUT+'/X2Y_OUT')
     os.makedirs(OUT+'/Y2X_OUT')
     
-train_Dataset = buildDataset(train_x_path, train_y_path, BATCH_SIZE)
 test_Dataset = buildDataset(test_x_path, test_y_path, BATCH_SIZE, shuffle = False)
-fid_Dataset = buildDataset(test_x_path, test_y_path, FID_BATCH_SIZE, shuffle = False)
 
 model = Model()
 config = tf.ConfigProto()
@@ -153,14 +151,17 @@ def train():
     epochs_g_loss = []
     epochs_fid = []
     
+    train_Dataset = buildDataset(train_x_path, train_y_path, BATCH_SIZE)
     train_Dataset = train_Dataset.repeat(tqdm_epochs)
     iterator = train_Dataset.make_one_shot_iterator()
     (x_next, y_next) = iterator.get_next()
+    
     path, dirs, filesX = next(os.walk(train_x_path))
     path, dirs, filesY = next(os.walk(train_y_path))
     iterationPerEpoch = min(len(filesX), len(filesY))//BATCH_SIZE
     
     
+    fid_Dataset = buildDataset(test_x_path, test_y_path, FID_BATCH_SIZE, shuffle = False)
     fid_Dataset = fid_Dataset.repeat(tqdm_epochs)
     fid_iterator = fid_Dataset.make_one_shot_iterator()
     (fid_x_next, fid_y_next) = fid_iterator.get_next()
