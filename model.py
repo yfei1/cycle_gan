@@ -1,7 +1,6 @@
 import tensorflow as tf
 import numpy as np
 import os
-import time
 from scipy.misc import imsave
 import tensorflow.contrib.gan as gan
 from tqdm import tqdm
@@ -154,6 +153,7 @@ def train():
     epochs_d_loss = []
     epochs_g_loss = []
     epochs_fid = []
+<<<<<<< HEAD
     
     train_Dataset = buildDataset(train_x_path, train_y_path, BATCH_SIZE)
     train_Dataset = train_Dataset.repeat(epochs)
@@ -169,6 +169,8 @@ def train():
     fid_Dataset = fid_Dataset.repeat(epochs)
     fid_iterator = fid_Dataset.make_one_shot_iterator()
     (fid_x_next, fid_y_next) = fid_iterator.get_next()
+=======
+>>>>>>> parent of 9b9ad73... Inspected a bug in data loader
 
 #    sess.run(iterator.initializer)
 #    sess.run(fid_iterator.initializer)
@@ -236,16 +238,19 @@ def train():
     '''
     for epoch in tqdm_epochs:
         BATCH_SIZE = 1
+        iterator = train_Dataset.make_initializable_iterator()
+        (x_next, y_next) = iterator.get_next()
         sess.run(iterator.initializer)
 
+        # lr = args.lr if epoch < args.epoch_step else args.lr*(args.epoch-epoch)/(args.epoch-args.epoch_step)        
         iteration = 0
         while True:
             try:
-                x_next, y_next = x_next/127.5-1, y_next/127.5-1
-                X, Y = sess.run([x_next, y_next])
+                X, Y = sess.run([x_next/127.5-1, y_next/127.5-1])
 
                 if X.shape[0] != BATCH_SIZE:
                     break
+
                 # Update G network and record fake outputs
                 X2Y, Y2X, _ = sess.run([
                     model.X2Y, model.Y2X, model.g_train], 
@@ -270,6 +275,7 @@ def train():
                         }
                     )
                 # d_loss_sum_epoch, g_loss_sum_epoch = d_loss_summary, g_loss_summary
+                
                 tqdm_epochs.set_description('Iteration %d: Gen loss = %g | Discrim loss = %g' % (iteration, g_loss, d_loss))
                 d_loss_last, g_loss_last = d_loss, g_loss
 
@@ -284,9 +290,11 @@ def train():
         saver.save(sess, MODEL_PATH)
 
         with tf.device('/cpu:0'):
+            fid_iterator = fid_Dataset.make_initializable_iterator()
+            (x_next, y_next) = fid_iterator.get_next()
             sess.run(fid_iterator.initializer)
-            fid_X, fid_Y = sess.run([fid_x_next/127.5-1, fid_y_next/127.5-1])
-            fid = sess.run(model.fid, feed_dict={model.X: fid_X, model.Y: fid_Y})
+            X, Y = sess.run([x_next/127.5-1, y_next/127.5-1])
+            fid = sess.run(model.fid, feed_dict={model.X: X, model.Y: Y})
             print('**** INCEPTION DISTANCE: %g ****' % fid)
 
         epochs_iteration.append(epoch)
