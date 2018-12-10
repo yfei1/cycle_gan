@@ -147,7 +147,7 @@ if not os.path.exists(OUT):
     
 train_X, train_Y = buildDataset(train_x_path, train_y_path, BATCH_SIZE)
 test_X, test_Y = buildDataset(test_x_path, test_y_path, BATCH_SIZE, weShuffle = False)
-fid_X, fid_Y = buildDataset(test_x_path, test_y_path, FID_BATCH_SIZE, weShuffle = False)
+#fid_X, fid_Y = buildDataset(test_x_path, test_y_path, FID_BATCH_SIZE, weShuffle = False)
 
 model = Model()
 config = tf.ConfigProto()
@@ -180,47 +180,43 @@ def train():
 
         iteration = 0
         for i in range(len(train_X)):
-            try:
-                X = train_X[i]/127.5-1
-                Y = train_Y[i]/127.5-1
+            X = train_X[i]/127.5-1
+            Y = train_Y[i]/127.5-1
 
-                if X.shape[0] != BATCH_SIZE:
-                    break
-                # Update G network and record fake outputs
-                X2Y, Y2X, _ = sess.run([
-                    model.X2Y, model.Y2X, model.g_train], 
-                    feed_dict={
-                        model.X: X, 
-                        model.Y: Y,
-                        model.true_labels: np.ones((BATCH_SIZE, 1), dtype=np.int32),
-                        model.fake_labels: np.ones((BATCH_SIZE, 1), dtype=np.int32)
-                        }
-                    )
-
-                # Update D network
-                d_loss, g_loss, _ = sess.run([
-                    model.d_loss, model.g_loss, model.d_train],
-                    feed_dict={
-                        model.X: X, 
-                        model.Y: Y, 
-                        model.X2Y_sample: X2Y, 
-                        model.Y2X_sample: Y2X,
-                        model.true_labels: np.ones((BATCH_SIZE, 1), dtype=np.int32),
-                        model.fake_labels: np.zeros((BATCH_SIZE, 1), dtype=np.int32)
-                        }
-                    )
-                # d_loss_sum_epoch, g_loss_sum_epoch = d_loss_summary, g_loss_summary
-                tqdm_epochs.set_description('Iteration %d: Gen loss = %g | Discrim loss = %g' % (iteration, g_loss, d_loss))
-                d_loss_last, g_loss_last = d_loss, g_loss
-
-                # Save
-                if iteration % save_every == 0:
-                    saver.save(sess, MODEL_PATH)
-                iteration += 1
-
-            except tf.errors.OutOfRangeError:
+            if X.shape[0] != BATCH_SIZE:
                 break
-        
+            # Update G network and record fake outputs
+            X2Y, Y2X, _ = sess.run([
+                model.X2Y, model.Y2X, model.g_train], 
+                feed_dict={
+                    model.X: X, 
+                    model.Y: Y,
+                    model.true_labels: np.ones((BATCH_SIZE, 1), dtype=np.int32),
+                    model.fake_labels: np.ones((BATCH_SIZE, 1), dtype=np.int32)
+                    }
+                )
+
+            # Update D network
+            d_loss, g_loss, _ = sess.run([
+                model.d_loss, model.g_loss, model.d_train],
+                feed_dict={
+                    model.X: X, 
+                    model.Y: Y, 
+                    model.X2Y_sample: X2Y, 
+                    model.Y2X_sample: Y2X,
+                    model.true_labels: np.ones((BATCH_SIZE, 1), dtype=np.int32),
+                    model.fake_labels: np.zeros((BATCH_SIZE, 1), dtype=np.int32)
+                    }
+                )
+            # d_loss_sum_epoch, g_loss_sum_epoch = d_loss_summary, g_loss_summary
+            tqdm_epochs.set_description('Iteration %d: Gen loss = %g | Discrim loss = %g' % (iteration, g_loss, d_loss))
+            d_loss_last, g_loss_last = d_loss, g_loss
+
+            # Save
+            if iteration % save_every == 0:
+                saver.save(sess, MODEL_PATH)
+            iteration += 1
+       
         saver.save(sess, MODEL_PATH)
 
         with tf.device('/cpu:0'):            
