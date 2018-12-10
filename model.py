@@ -1,12 +1,16 @@
 import tensorflow as tf
 import numpy as np
+import glob
 import os
 import time
-from scipy.misc import imsave
+from scipy.misc import imsave, imread, imresize
+from random import shuffle
 import tensorflow.contrib.gan as gan
 from tqdm import tqdm
 from module import *
 import matplotlib.pyplot as plt
+ 
+
 # from utils import *
 
 
@@ -220,8 +224,9 @@ def train():
         saver.save(sess, MODEL_PATH)
 
         with tf.device('/cpu:0'):            
+            fid_X, fid_Y = buildDataset(test_x_path, test_y_path, FID_BATCH_SIZE, weShuffle = False)
             fid_X = fid_X[0]/127.5-1
-            fid_Y = fid_X[0]/127.5-1
+            fid_Y = fid_Y[0]/127.5-1
             fid = sess.run(model.fid, feed_dict={model.X: fid_X, model.Y: fid_Y})
             print('**** INCEPTION DISTANCE: %g ****' % fid)
 
