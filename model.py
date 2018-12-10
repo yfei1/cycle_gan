@@ -5,6 +5,7 @@ from scipy.misc import imsave
 import tensorflow.contrib.gan as gan
 from tqdm import tqdm
 from module import *
+import matplotlib.pyplot as plt
 # from utils import *
 
 
@@ -17,7 +18,7 @@ train_y_path = './datasets/horse2zebra/trainB'
 test_x_path = './datasets/horse2zebra/testA'
 test_y_path = './datasets/horse2zebra/testB'
 OUT = './output'
-log_every = 20
+log_every = 1
 save_every = 200
 L1_lambda = 10
 RESTORE = False
@@ -64,11 +65,6 @@ class Model(object):
         self.g_train = self.g_trainer()
         self.d_train = self.d_trainer()
         self.fid = self.fid_function()
-
-        # summary
-        self.g_loss_sum = tf.summary.scalar("g_loss", self.g_loss)
-        self.d_loss_sum = tf.summary.scalar("d_loss", self.d_loss)
-        self.fid_sum = tf.summary.scalar("fid", self.fid)
 
     def g_loss_function(self):
         g_loss_X2Y = tf.reduce_mean(tf.losses.mean_squared_error(self.d_X2Y, tf.ones_like(self.d_X2Y)))
@@ -142,10 +138,20 @@ def load_last_checkpoint():
     saver.restore(sess, tf.train.latest_checkpoint('./'))
 
 def train():
-    writer = tf.summary.FileWriter("./logs", sess.graph)
+    # writer = tf.summary.FileWriter("./logs", sess.graph)
     print("Model will be saved at %s", MODEL_PATH)
     tqdm_epochs = tqdm(range(epochs))
-    d_loss_sum_epoch, g_loss_sum_epoch = None, None
+
+    d_loss_last, g_loss_last = None, None
+    epoch_0_iteration = []
+    epoch_0_d_loss = []
+    epoch_0_g_loss = []
+
+    epochs_iteration = []
+    epochs_d_loss = []
+    epochs_g_loss = []
+    epochs_fid = []
+
     for epoch in tqdm_epochs:
         BATCH_SIZE = 1
         iterator = train_Dataset.make_initializable_iterator()
@@ -173,8 +179,8 @@ def train():
                     )
 
                 # Update D network
-                d_loss, g_loss, _, d_loss_summary, g_loss_summary = sess.run([
-                    model.d_loss, model.g_loss, model.d_train, model.d_loss_sum, model.g_loss_sum],
+                d_loss, g_loss, _ = sess.run([
+                    model.d_loss, model.g_loss, model.d_train],
                     feed_dict={
                         model.X: X, 
                         model.Y: Y, 
@@ -184,13 +190,14 @@ def train():
                         model.fake_labels: np.zeros((BATCH_SIZE, 1), dtype=np.int32)
                         }
                     )
-                d_loss_sum_epoch, g_loss_sum_epoch = d_loss_summary, g_loss_summary
+                # d_loss_sum_epoch, g_loss_sum_epoch = d_loss_summary, g_loss_summary
                 
                 tqdm_epochs.set_description('Iteration %d: Gen loss = %g | Discrim loss = %g' % (iteration, g_loss, d_loss))
-                
+                d_loss_last, g_loss_last = d_loss, g_loss
                 if epoch == 0 and iteration % log_every == 0:
-                    writer.add_summary(d_loss_summary, iteration)
-                    writer.add_summary(g_loss_summary, iteration)
+                    epoch_0_iteration.append(iteration)
+                    epoch_0_d_loss.append(d_loss)
+                    epoch_0_g_loss.append(g_loss)
 
                 # Save
                 if iteration % save_every == 0:
@@ -202,17 +209,39 @@ def train():
         
         saver.save(sess, MODEL_PATH)
 
-        # summary of the last iteration of the epoch
-        writer.add_summary(d_loss_sum_epoch, epoch)
-        writer.add_summary(g_loss_sum_epoch, epoch)
-
         fid_iterator = fid_Dataset.make_initializable_iterator()
         (x_next, y_next) = fid_iterator.get_next()
         sess.run(fid_iterator.initializer)
         X, Y = sess.run([x_next/127.5-1, y_next/127.5-1])
-        fid, fid_sum = sess.run([model.fid, model.fid_sum], feed_dict={model.X: X, model.Y: Y})
+        fid = sess.run(model.fid, feed_dict={model.X: X, model.Y: Y})
         print('**** INCEPTION DISTANCE: %g ****' % fid)
-        writer.add_summary(fid_sum, epoch)
+
+        if epoch == 0:
+            plt.grid()
+            plt.plot(epoch_0_iteration, epoch_0_d_loss,'r', label='change of d_loss in the first epoch')
+            plt.savefig("plots/epoch0_d_loss.jpg")
+            plt.clf()
+            plt.grid()
+            plt.plot(epoch_0_iteration, epoch_0_g_loss,'r', label='change of g_loss in the first epoch')
+            plt.savefig("plots/epoch0_g_loss.jpg")
+            plt.clf()
+        epochs_iteration.append(epoch)
+        epochs_d_loss.append(d_loss_last)
+        epochs_g_loss.append(g_loss_last)
+        epochs_fid.append(fid)
+
+    # end of all epochs
+    plt.grid()
+    plt.plot(epochs_iteration, epochs_d_loss,'r', label='change of d_loss in all epochs')
+    plt.savefig("plots/epochs_d_loss.jpg")
+    plt.clf()
+    plt.grid()
+    plt.plot(epochs_iteration, epochs_g_loss,'r', label='change of g_loss in all epochs')
+    plt.savefig("plots/epochs_g_loss.jpg")
+    plt.clf()
+    plt.grid()
+    plt.plot(epochs_iteration, epochs_fid,'r', label='change of fid in all epochs')
+    plt.savefig("plots/epochs_fid.jpg")
 
 
 def test():
