@@ -1,6 +1,7 @@
 import tensorflow as tf
 import numpy as np
 import os
+import time
 from scipy.misc import imsave
 import tensorflow.contrib.gan as gan
 from tqdm import tqdm
@@ -28,18 +29,14 @@ beta1 = 0.5
 MODE = 'train'
 MODEL_PATH = './cycleGAN_resnet_in'
 
-
 class Model(object):
-    def __init__(X,Y):
+    def __init__(self):
         self.discriminator = discriminator
         self.generator = generator_resnet
         # self.criterionGAN = mae_criterion
 
-        self.X = X
-        self.Y = Y
-
-        #self.X = tf.placeholder(tf.float32, [None, INPUT_WIDTH, INPUT_WIDTH, INPUT_DIM])
-        #self.Y = tf.placeholder(tf.float32, [None, INPUT_WIDTH, INPUT_WIDTH, INPUT_DIM])
+        self.X = tf.placeholder(tf.float32, [None, INPUT_WIDTH, INPUT_WIDTH, INPUT_DIM])
+        self.Y = tf.placeholder(tf.float32, [None, INPUT_WIDTH, INPUT_WIDTH, INPUT_DIM])
         self.X2Y_sample = tf.placeholder(tf.float32, [None, INPUT_WIDTH, INPUT_WIDTH, INPUT_DIM])
         self.Y2X_sample = tf.placeholder(tf.float32, [None, INPUT_WIDTH, INPUT_WIDTH, INPUT_DIM])
         
@@ -125,7 +122,9 @@ if not os.path.exists(OUT):
     os.makedirs(OUT+'/X2Y_OUT')
     os.makedirs(OUT+'/Y2X_OUT')
     
+train_Dataset = buildDataset(train_x_path, train_y_path, BATCH_SIZE)
 test_Dataset = buildDataset(test_x_path, test_y_path, BATCH_SIZE, shuffle = False)
+fid_Dataset = buildDataset(test_x_path, test_y_path, FID_BATCH_SIZE, shuffle = False)
 
 model = Model()
 config = tf.ConfigProto()
@@ -142,7 +141,6 @@ def load_last_checkpoint():
     saver.restore(sess, tf.train.latest_checkpoint('./'))
 
 def train():
-    BATCH_SIZE = 1
     # writer = tf.summary.FileWriter("./logs", sess.graph)
     print("Model will be saved at %s", MODEL_PATH)
     tqdm_epochs = tqdm(range(epochs))
@@ -153,104 +151,25 @@ def train():
     epochs_d_loss = []
     epochs_g_loss = []
     epochs_fid = []
-<<<<<<< HEAD
     
-    train_Dataset = buildDataset(train_x_path, train_y_path, BATCH_SIZE)
-    train_Dataset = train_Dataset.repeat(epochs)
-    iterator = train_Dataset.make_one_shot_iterator()
+    iterator = train_Dataset.make_initializable_iterator()
     (x_next, y_next) = iterator.get_next()
     
-    path, dirs, filesX = next(os.walk(train_x_path))
-    path, dirs, filesY = next(os.walk(train_y_path))
-    iterationPerEpoch = min(len(filesX), len(filesY))//BATCH_SIZE
-    
-    
-    fid_Dataset = buildDataset(test_x_path, test_y_path, FID_BATCH_SIZE, shuffle = False)
-    fid_Dataset = fid_Dataset.repeat(epochs)
-    fid_iterator = fid_Dataset.make_one_shot_iterator()
+    fid_iterator = fid_Dataset.make_initializable_iterator()
     (fid_x_next, fid_y_next) = fid_iterator.get_next()
-=======
->>>>>>> parent of 9b9ad73... Inspected a bug in data loader
 
-#    sess.run(iterator.initializer)
-#    sess.run(fid_iterator.initializer)
-
-    iteration = 0
-    while True:
-        try:
-            x_next, y_next = x_next/127.5-1, y_next/127.5-1
-            X, Y = sess.run([x_next, y_next])
-
-            if X.shape[0] != BATCH_SIZE:
-                break
-                # Update G network and record fake outputs
-            X2Y, Y2X, _ = sess.run([
-                model.X2Y, model.Y2X, model.g_train], 
-                feed_dict={
-                    model.X: X, 
-                    model.Y: Y,
-                    model.true_labels: np.ones((BATCH_SIZE, 1), dtype=np.int32),
-                    model.fake_labels: np.ones((BATCH_SIZE, 1), dtype=np.int32)
-                    }
-                )
-
-
-            # Update D network
-            d_loss, g_loss, _ = sess.run([
-                model.d_loss, model.g_loss, model.d_train],
-                feed_dict={
-                    model.X: X, 
-                    model.Y: Y, 
-                    model.X2Y_sample: X2Y, 
-                    model.Y2X_sample: Y2X,
-                    model.true_labels: np.ones((BATCH_SIZE, 1), dtype=np.int32),
-                    model.fake_labels: np.zeros((BATCH_SIZE, 1), dtype=np.int32)
-                    }
-                )
-            # d_loss_sum_epoch, g_loss_sum_epoch = d_loss_summary, g_loss_summary
-            tqdm_epochs.set_description('Iteration %d: Gen loss = %g | Discrim loss = %g' % (iteration, g_loss, d_loss))
-            d_loss_last, g_loss_last = d_loss, g_loss
-
-            # Save
-            if iteration % save_every == 0:
-                saver.save(sess, MODEL_PATH)
-            iteration += 1
-            
-            # one epoch ends
-            if iteration%iterationPerEpoch == 0:    
-                saver.save(sess, MODEL_PATH)
-
-                with tf.device('/cpu:0'):
-                    fid_X, fid_Y = sess.run([fid_x_next/127.5-1, fid_y_next/127.5-1])
-                    fid = sess.run(model.fid, feed_dict={model.X: fid_X, model.Y: fid_Y})
-                    print('**** INCEPTION DISTANCE: %g ****' % fid)
-
-                epochs_iteration.append(epoch)
-                epochs_d_loss.append(d_loss_last)
-                epochs_g_loss.append(g_loss_last)
-                epochs_fid.append(fid)
-
-        except tf.errors.OutOfRangeError:
-            break
-
-    
-    
-    '''
     for epoch in tqdm_epochs:
         BATCH_SIZE = 1
-        iterator = train_Dataset.make_initializable_iterator()
-        (x_next, y_next) = iterator.get_next()
         sess.run(iterator.initializer)
 
-        # lr = args.lr if epoch < args.epoch_step else args.lr*(args.epoch-epoch)/(args.epoch-args.epoch_step)        
         iteration = 0
         while True:
             try:
-                X, Y = sess.run([x_next/127.5-1, y_next/127.5-1])
+                x_next, y_next = x_next/127.5-1, y_next/127.5-1
+                X, Y = sess.run([x_next, y_next])
 
                 if X.shape[0] != BATCH_SIZE:
                     break
-
                 # Update G network and record fake outputs
                 X2Y, Y2X, _ = sess.run([
                     model.X2Y, model.Y2X, model.g_train], 
@@ -275,7 +194,6 @@ def train():
                         }
                     )
                 # d_loss_sum_epoch, g_loss_sum_epoch = d_loss_summary, g_loss_summary
-                
                 tqdm_epochs.set_description('Iteration %d: Gen loss = %g | Discrim loss = %g' % (iteration, g_loss, d_loss))
                 d_loss_last, g_loss_last = d_loss, g_loss
 
@@ -290,18 +208,16 @@ def train():
         saver.save(sess, MODEL_PATH)
 
         with tf.device('/cpu:0'):
-            fid_iterator = fid_Dataset.make_initializable_iterator()
-            (x_next, y_next) = fid_iterator.get_next()
             sess.run(fid_iterator.initializer)
-            X, Y = sess.run([x_next/127.5-1, y_next/127.5-1])
-            fid = sess.run(model.fid, feed_dict={model.X: X, model.Y: Y})
+            fid_X, fid_Y = sess.run([fid_x_next/127.5-1, fid_y_next/127.5-1])
+            fid = sess.run(model.fid, feed_dict={model.X: fid_X, model.Y: fid_Y})
             print('**** INCEPTION DISTANCE: %g ****' % fid)
 
         epochs_iteration.append(epoch)
         epochs_d_loss.append(d_loss_last)
         epochs_g_loss.append(g_loss_last)
         epochs_fid.append(fid)
-    '''
+
     # end of all epochs
     plt.grid()
     plt.plot(epochs_iteration, epochs_d_loss, label='change of d_loss in all epochs')
