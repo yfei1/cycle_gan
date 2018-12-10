@@ -31,13 +31,16 @@ MODEL_PATH = './cycleGAN_resnet_in'
 
 
 class Model(object):
-    def __init__(self):
+    def __init__(X,Y):
         self.discriminator = discriminator
         self.generator = generator_resnet
         # self.criterionGAN = mae_criterion
 
-        self.X = tf.placeholder(tf.float32, [None, INPUT_WIDTH, INPUT_WIDTH, INPUT_DIM])
-        self.Y = tf.placeholder(tf.float32, [None, INPUT_WIDTH, INPUT_WIDTH, INPUT_DIM])
+        self.X = X
+        self.Y = Y
+
+        #self.X = tf.placeholder(tf.float32, [None, INPUT_WIDTH, INPUT_WIDTH, INPUT_DIM])
+        #self.Y = tf.placeholder(tf.float32, [None, INPUT_WIDTH, INPUT_WIDTH, INPUT_DIM])
         self.X2Y_sample = tf.placeholder(tf.float32, [None, INPUT_WIDTH, INPUT_WIDTH, INPUT_DIM])
         self.Y2X_sample = tf.placeholder(tf.float32, [None, INPUT_WIDTH, INPUT_WIDTH, INPUT_DIM])
         
@@ -153,7 +156,7 @@ def train():
     epochs_fid = []
     
     train_Dataset = buildDataset(train_x_path, train_y_path, BATCH_SIZE)
-    train_Dataset = train_Dataset.repeat(tqdm_epochs)
+    train_Dataset = train_Dataset.repeat(epochs)
     iterator = train_Dataset.make_one_shot_iterator()
     (x_next, y_next) = iterator.get_next()
     
@@ -163,12 +166,12 @@ def train():
     
     
     fid_Dataset = buildDataset(test_x_path, test_y_path, FID_BATCH_SIZE, shuffle = False)
-    fid_Dataset = fid_Dataset.repeat(tqdm_epochs)
+    fid_Dataset = fid_Dataset.repeat(epochs)
     fid_iterator = fid_Dataset.make_one_shot_iterator()
     (fid_x_next, fid_y_next) = fid_iterator.get_next()
 
-    sess.run(iterator.initializer)
-    sess.run(fid_iterator.initializer)
+#    sess.run(iterator.initializer)
+#    sess.run(fid_iterator.initializer)
 
     iteration = 0
     while True:
@@ -179,6 +182,16 @@ def train():
             if X.shape[0] != BATCH_SIZE:
                 break
                 # Update G network and record fake outputs
+            X2Y, Y2X, _ = sess.run([
+                model.X2Y, model.Y2X, model.g_train], 
+                feed_dict={
+                    model.X: X, 
+                    model.Y: Y,
+                    model.true_labels: np.ones((BATCH_SIZE, 1), dtype=np.int32),
+                    model.fake_labels: np.ones((BATCH_SIZE, 1), dtype=np.int32)
+                    }
+                )
+
 
             # Update D network
             d_loss, g_loss, _ = sess.run([
