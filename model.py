@@ -114,14 +114,12 @@ def buildDataset(x_path, y_path, BATCH_SIZE, weShuffle = True):
     y_files = glob.glob(y_path + "/*.jpg")
     num_of_files = min(len(x_files), len(y_files))
     
-    print('num files', num_of_files)
-    
     if weShuffle:
         shuffle(x_files)
         shuffle(y_files)
 
     x_images = [imresize(imread(x), (INPUT_WIDTH,INPUT_WIDTH)) for x in x_files]
-    for i in range(num_of_files):
+    for i in range(len(x_images)):
         if(x_images[i].shape != (256,256,3)):
             print(x_files[i])
             print(x_images[i].shape)
@@ -133,7 +131,7 @@ def buildDataset(x_path, y_path, BATCH_SIZE, weShuffle = True):
     
     y_images = [imresize(imread(x), (INPUT_WIDTH,INPUT_WIDTH)) for x in y_files]
 
-    for i in range(num_of_files):
+    for i in range(len(y_images)):
         if(y_images[i].shape != (256,256,3)):
             print(y_files[i])
             print(y_images[i].shape)
@@ -195,9 +193,6 @@ def train():
 
         iteration = 0
         for i in range(len(train_X)):
-            print(train_X[i])
-            print(type(train_X))
-            print(type(train_X[i]))
             X = train_X[i]/127.5-1
             Y = train_Y[i]/127.5-1
 
