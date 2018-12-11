@@ -122,12 +122,10 @@ def buildDataset(x_path, y_path, BATCH_SIZE, weShuffle = True):
     x_images = [imresize(imread(x), (INPUT_WIDTH,INPUT_WIDTH)) for x in x_files]
     x_images = x_images[0:num_of_files]
     x_images = split(x_images,BATCH_SIZE)
-    x_images = x_images[0:len(x_images)]
     
     y_images = [imresize(imread(x), (INPUT_WIDTH,INPUT_WIDTH)) for x in y_files]
     y_images = y_images[0:num_of_files]    
     y_images = split(x_images,BATCH_SIZE)
-    y_images = x_images[0:len(y_images)]
  
     return np.array(x_images), np.array(y_images)
     
@@ -246,9 +244,9 @@ def train():
 
 
 def test(): 
-    for i in range(len(test_X)):
-        X = test_X[i]/127.5-1
-        Y = test_Y[i]/127.5-1
+    for idx in range(len(test_X)):
+        X = test_X[idx]/127.5-1
+        Y = test_Y[idx]/127.5-1
     
         gen_y, gen_x = sess.run([model.X2Y, model.Y2X], feed_dict={model.X: X, model.Y: Y})    
     
