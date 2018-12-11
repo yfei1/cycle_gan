@@ -30,7 +30,7 @@ RESTORE = False
 epochs = 10
 learn_rate = 2e-4
 beta1 = 0.5
-MODE = 'test'
+MODE = 'train'
 MODEL_PATH = './cycleGAN_resnet_in'
 
 class Model(object):
@@ -126,10 +126,11 @@ def buildDataset(x_path, y_path, BATCH_SIZE, weShuffle = True):
     
     y_images = [imresize(imread(x), (INPUT_WIDTH,INPUT_WIDTH)) for x in y_files]
     y_images = y_images[0:num_of_files]    
-    y_images = split(x_images,BATCH_SIZE)
-    y_images = x_images[0:len(y_images)]
- 
+    y_images = split(y_images,BATCH_SIZE)
+    y_images = y_images[0:len(y_images)]
+    
     return np.array(x_images), np.array(y_images)
+    
     
 def split(arr, size):
      arrs = []
