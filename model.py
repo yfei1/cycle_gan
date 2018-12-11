@@ -15,13 +15,13 @@ import matplotlib.pyplot as plt
 
 
 BATCH_SIZE = 1
-FID_BATCH_SIZE = 120
+FID_BATCH_SIZE = 30
 INPUT_WIDTH = 128
 INPUT_DIM = 3
-train_x_path = './datasets/horse2zebra/trainA'
-train_y_path = './datasets/horse2zebra/trainB'
-test_x_path = './datasets/horse2zebra/testA'
-test_y_path = './datasets/horse2zebra/testB'
+train_x_path = './datasets/men2women/trainA'
+train_y_path = './datasets/men2women/trainB'
+test_x_path = './datasets/men2women/testA'
+test_y_path = './datasets/men2women/testB'
 OUT = './output/resnet_in'
 log_every = 20
 save_every = 200
@@ -30,7 +30,7 @@ RESTORE = False
 epochs = 10
 learn_rate = 2e-4
 beta1 = 0.5
-MODE = 'train'
+MODE = 'test'
 MODEL_PATH = './cycleGAN_resnet_in'
 
 class Model(object):
@@ -246,8 +246,8 @@ def train():
 
 
 def test():
-    X = test_X[i]/127.5-1
-    Y = test_Y[i]/127.5-1
+    X = test_X/127.5-1
+    Y = test_Y/127.5-1
     
     gen_y, gen_x = sess.run([model.X2Y, model.Y2X], feed_dict={model.X: X, model.Y: Y})    
     
