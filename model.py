@@ -245,42 +245,43 @@ def train():
     plt.savefig("plots/epochs_fid.jpg")
 
 
-def test():
-    X = test_X[i]/127.5-1
-    Y = test_Y[i]/127.5-1
+def test(): 
+    for i in range(len(test_X)):
+        X = test_X[i]/127.5-1
+        Y = test_Y[i]/127.5-1
     
-    gen_y, gen_x = sess.run([model.X2Y, model.Y2X], feed_dict={model.X: X, model.Y: Y})    
+        gen_y, gen_x = sess.run([model.X2Y, model.Y2X], feed_dict={model.X: X, model.Y: Y})    
     
-    # Rescale the image from (-1, 1) to (0, 255)
-    gen_y = ((gen_y / 2) - 0.5) * 255
-    gen_x = ((gen_x / 2) - 0.5) * 255
-    X = ((X / 2) - 0.5) * 255
-    Y = ((Y / 2) - 0.5) * 255
-    
-    # Convert to uint8
-    gen_y = gen_y.astype(np.uint8)
-    gen_x = gen_x.astype(np.uint8)
-    
-    X = X.astype(np.uint8)
-    Y = Y.astype(np.uint8)
-    
-    # Save images to disk
-    for i in range(0, BATCH_SIZE):
-        img_Xi = X[i]
-        s = OUT+'/X2Y_OUT/X_'+str(i)+'.jpg'
-        imsave(s, img_Xi)
-        
-        img_yi = gen_y[i]
-        s = OUT+'/X2Y_OUT/Y_'+str(i)+'.jpg'
-        imsave(s, img_yi)
-        
-        img_Yi = Y[i]
-        s = OUT+'/Y2X_OUT/Y_'+str(i)+'.jpg'
-        imsave(s, img_Yi)
-        
-        img_xi = gen_x[i]
-        s = OUT+'/Y2X_OUT/X_'+str(i)+'.jpg'
-        imsave(s, img_xi)
+        # Rescale the image from (-1, 1) to (0, 255)
+        gen_y = ((gen_y / 2) - 0.5) * 255
+        gen_x = ((gen_x / 2) - 0.5) * 255
+        X = ((X / 2) - 0.5) * 255
+        Y = ((Y / 2) - 0.5) * 255
+
+        # Convert to uint8
+        gen_y = gen_y.astype(np.uint8)
+        gen_x = gen_x.astype(np.uint8)
+
+        X = X.astype(np.uint8)
+        Y = Y.astype(np.uint8)
+
+        # Save images to disk
+        for i in range(0, BATCH_SIZE):
+            img_Xi = X[i]
+            s = OUT+'/X2Y_OUT/X_'+str(i)+'.jpg'
+            imsave(s, img_Xi)
+
+            img_yi = gen_y[i]
+            s = OUT+'/X2Y_OUT/Y_'+str(i)+'.jpg'
+            imsave(s, img_yi)
+
+            img_Yi = Y[i]
+            s = OUT+'/Y2X_OUT/Y_'+str(i)+'.jpg'
+            imsave(s, img_Yi)
+
+            img_xi = gen_x[i]
+            s = OUT+'/Y2X_OUT/X_'+str(i)+'.jpg'
+            imsave(s, img_xi)
   
 
 if MODE == 'train':
