@@ -120,10 +120,10 @@ def buildDataset(x_path, y_path, BATCH_SIZE, weShuffle = True):
 
     x_images = [imresize(imread(x), (INPUT_WIDTH,INPUT_WIDTH)) for x in x_files]
     for i in range(len(x_images)):
-        if(x_images[i].shape != (256,256,3)):
+        if(x_images[i].shape != (INPUT_WIDTH,INPUT_WIDTH,INPUT_DIM)):
             print(x_files[i])
             print(x_images[i].shape)
-            print("fail")
+            print("The resized image doesn't match the shape requested, please check the file above.")
 
 
     x_images = np.array(x_images[0:num_of_files])
@@ -132,10 +132,10 @@ def buildDataset(x_path, y_path, BATCH_SIZE, weShuffle = True):
     y_images = [imresize(imread(x), (INPUT_WIDTH,INPUT_WIDTH)) for x in y_files]
 
     for i in range(len(y_images)):
-        if(y_images[i].shape != (256,256,3)):
+        if(y_images[i].shape != (INPUT_WIDTH,INPUT_WIDTH,INPUT_DIM)):
             print(y_files[i])
             print(y_images[i].shape)
-            print("yfail")
+            print("The resized image doesn't match the shape requested, please check the file above.")
 
 
 
