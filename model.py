@@ -14,14 +14,14 @@ import matplotlib.pyplot as plt
 # from utils import *
 
 
-BATCH_SIZE = 1
+BATCH_SIZE = 2
 FID_BATCH_SIZE = 30
-INPUT_WIDTH = 128
+INPUT_WIDTH = 256
 INPUT_DIM = 3
-train_x_path = './datasets/men2women/trainA'
-train_y_path = './datasets/men2women/trainB'
-test_x_path = './datasets/men2women/testA'
-test_y_path = './datasets/men2women/testB'
+train_x_path = './datasets/horse2zebra/trainA'
+train_y_path = './datasets/horse2zebra/trainB'
+test_x_path = './datasets/horse2zebra/testA'
+test_y_path = './datasets/horse2zebra/testB'
 OUT = './output/resnet_in'
 log_every = 20
 save_every = 200
@@ -30,7 +30,7 @@ RESTORE = False
 epochs = 10
 learn_rate = 2e-4
 beta1 = 0.5
-MODE = 'test'
+MODE = 'train'
 MODEL_PATH = './cycleGAN_resnet_in'
 
 class Model(object):
@@ -94,7 +94,7 @@ class Model(object):
         return g_solver
 
     def d_trainer(self):
-        d_solver = tf.train.AdamOptimizer(learn_rate/2, beta1).minimize(self.d_loss, var_list=self.d_vars)
+        d_solver = tf.train.AdamOptimizer(learn_rate/4, beta1).minimize(self.d_loss, var_list=self.d_vars)
         return d_solver
 
     def fid_function(self):
@@ -193,6 +193,18 @@ def train():
                     model.fake_labels: np.ones((BATCH_SIZE, 1), dtype=np.int32)
                     }
                 )
+            
+            # Update G network and record fake outputs
+            X2Y, Y2X, _ = sess.run([
+                model.X2Y, model.Y2X, model.g_train], 
+                feed_dict={
+                    model.X: X, 
+                    model.Y: Y,
+                    model.true_labels: np.ones((BATCH_SIZE, 1), dtype=np.int32),
+                    model.fake_labels: np.ones((BATCH_SIZE, 1), dtype=np.int32)
+                    }
+                )
+
 
             # Update D network
             d_loss, g_loss, _ = sess.run([

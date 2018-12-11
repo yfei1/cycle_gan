@@ -14,9 +14,9 @@ def discriminator(image, labels, reuse=False, name="discriminator"):
             assert tf.get_variable_scope().reuse is False
 
         h0 = lrelu(conv2d(image, df_dim, name='d_h0_conv'))
-        n1 = nonlocalblock(h0, name='d_nonlocal1_')
+        # n1 = nonlocalblock(h0, name='d_nonlocal1_')
         # h0 is (128 x 128 x self.df_dim)
-        h1 = lrelu(instance_norm(conv2d(n1, df_dim * 2, name='d_h1_conv'), 'd_bn1'))
+        h1 = lrelu(instance_norm(conv2d(h0, df_dim * 2, name='d_h1_conv'), 'd_bn1'))
         # h1 is (64 x 64 x self.df_dim*2)
         h2 = lrelu(instance_norm(conv2d(h1, df_dim * 4, name='d_h2_conv'), 'd_bn2'))
         # h2 is (32x 32 x self.df_dim*4)
@@ -181,6 +181,7 @@ def generator_resnet(image, Y, reuse=False, name="generator", norm=instance_norm
         c0 = tf.pad(image, [[0, 0], [3, 3], [3, 3], [0, 0]], "REFLECT")
         c1 = tf.nn.relu(norm(conv2d(c0, gf_dim, 7, 1, padding='VALID', name='g_e1_c'), 'g_e1_bn'))
         c2 = tf.nn.relu(norm(conv2d(c1, gf_dim * 2, 3, 2, name='g_e2_c'), 'g_e2_bn'))
+        # n1 = nonlocalblock(c2, name='g_nonlocal1')
         c3 = tf.nn.relu(norm(conv2d(c2, gf_dim * 4, 3, 2, name='g_e3_c'), 'g_e3_bn'))
         # define G network with 9 resnet blocks
         r1 = residule_block(c3, gf_dim * 4, name='g_r1')
