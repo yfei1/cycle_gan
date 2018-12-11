@@ -30,7 +30,7 @@ RESTORE = False
 epochs = 10
 learn_rate = 2e-4
 beta1 = 0.5
-MODE = 'train'
+MODE = 'test'
 MODEL_PATH = './cycleGAN_resnet_in'
 
 class Model(object):
