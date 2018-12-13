@@ -14,17 +14,17 @@ import matplotlib.pyplot as plt
 # from utils import *
 
 
-BATCH_SIZE = 2
+BATCH_SIZE = 1
 FID_BATCH_SIZE = 30
-INPUT_WIDTH = 256
+INPUT_WIDTH = 128
 INPUT_DIM = 3
-train_x_path = './datasets/horse2zebra/trainA'
-train_y_path = './datasets/horse2zebra/trainB'
-test_x_path = './datasets/horse2zebra/testA'
-test_y_path = './datasets/horse2zebra/testB'
+train_x_path = './datasets/men2women/trainA'
+train_y_path = './datasets/men2women/trainB'
+test_x_path = './datasets/men2women/testA'
+test_y_path = './datasets/men2women/testB'
 OUT = './output/resnet_in'
 log_every = 20
-save_every = 200
+save_every = 1000
 L1_lambda = 10
 RESTORE = False
 epochs = 10
@@ -44,22 +44,20 @@ class Model(object):
         self.X2Y_sample = tf.placeholder(tf.float32, [None, INPUT_WIDTH, INPUT_WIDTH, INPUT_DIM])
         self.Y2X_sample = tf.placeholder(tf.float32, [None, INPUT_WIDTH, INPUT_WIDTH, INPUT_DIM])
         
-        self.true_labels = tf.placeholder(tf.int32, [None, 1])
-        self.fake_labels = tf.placeholder(tf.int32, [None, 1])
+        self.labels = tf.placeholder(tf.int32, [None, 1])
 
         self.X2Y = self.generator(self.X, self.Y, False, name="generatorX2Y")
         self.X2Y2X = self.generator(self.X2Y, self.X, False, name="generatorY2X")
         self.Y2X = self.generator(self.Y, self.X, True, name="generatorY2X")
         self.Y2X2Y = self.generator(self.Y2X, self.Y, True, name="generatorX2Y")
 
-        # TODO: true is 0, fake is 1
-        self.d_X2Y = self.discriminator(self.X2Y, self.fake_labels, reuse=False, name="discriminatorY")
-        self.d_Y2X = self.discriminator(self.Y2X, self.fake_labels, reuse=False, name="discriminatorX")
+        self.d_X2Y = self.discriminator(self.X2Y, self.labels, reuse=False, name="discriminatorY")
+        self.d_Y2X = self.discriminator(self.Y2X, self.labels, reuse=False, name="discriminatorX")
 
-        self.d_Y = self.discriminator(self.Y, self.true_labels, reuse=True, name="discriminatorY")
-        self.d_X = self.discriminator(self.X, self.true_labels, reuse=True, name="discriminatorX")
-        self.d_Y2X_sample = self.discriminator(self.Y2X_sample, self.fake_labels, reuse=True, name="discriminatorY")
-        self.d_X2Y_sample = self.discriminator(self.X2Y_sample, self.fake_labels, reuse=True, name="discriminatorX")
+        self.d_Y = self.discriminator(self.Y, self.labels, reuse=True, name="discriminatorY")
+        self.d_X = self.discriminator(self.X, self.labels, reuse=True, name="discriminatorX")
+        self.d_Y2X_sample = self.discriminator(self.Y2X_sample, self.labels, reuse=True, name="discriminatorY")
+        self.d_X2Y_sample = self.discriminator(self.X2Y_sample, self.labels, reuse=True, name="discriminatorX")
 
         # Declare losses, optimizers(trainers) and fid for evaluation
         t_vars = tf.trainable_variables()
@@ -94,7 +92,7 @@ class Model(object):
         return g_solver
 
     def d_trainer(self):
-        d_solver = tf.train.AdamOptimizer(learn_rate/4, beta1).minimize(self.d_loss, var_list=self.d_vars)
+        d_solver = tf.train.AdamOptimizer(learn_rate, beta1).minimize(self.d_loss, var_list=self.d_vars)
         return d_solver
 
     def fid_function(self):
@@ -160,7 +158,6 @@ if not os.path.exists(OUT):
     
 train_X, train_Y = buildDataset(train_x_path, train_y_path, BATCH_SIZE)
 test_X, test_Y = buildDataset(test_x_path, test_y_path, BATCH_SIZE, weShuffle = False)
-#fid_X, fid_Y = buildDataset(test_x_path, test_y_path, FID_BATCH_SIZE, weShuffle = False)
 
 model = Model()
 config = tf.ConfigProto()
@@ -177,7 +174,6 @@ def load_last_checkpoint():
     saver.restore(sess, tf.train.latest_checkpoint('./'))
 
 def train():
-    # writer = tf.summary.FileWriter("./logs", sess.graph)
     print("Model will be saved at %s", MODEL_PATH)
     tqdm_epochs = tqdm(range(epochs))
 
@@ -204,22 +200,10 @@ def train():
                 feed_dict={
                     model.X: X, 
                     model.Y: Y,
-                    model.true_labels: np.ones((BATCH_SIZE, 1), dtype=np.int32),
-                    model.fake_labels: np.ones((BATCH_SIZE, 1), dtype=np.int32)
+                    model.labels: np.full((BATCH_SIZE, 1), 0, dtype=np.int32)
                     }
                 )
             
-            # Update G network and record fake outputs
-            X2Y, Y2X, _ = sess.run([
-                model.X2Y, model.Y2X, model.g_train], 
-                feed_dict={
-                    model.X: X, 
-                    model.Y: Y,
-                    model.true_labels: np.ones((BATCH_SIZE, 1), dtype=np.int32),
-                    model.fake_labels: np.ones((BATCH_SIZE, 1), dtype=np.int32)
-                    }
-                )
-
 
             # Update D network
             d_loss, g_loss, _ = sess.run([
@@ -229,8 +213,7 @@ def train():
                     model.Y: Y, 
                     model.X2Y_sample: X2Y, 
                     model.Y2X_sample: Y2X,
-                    model.true_labels: np.ones((BATCH_SIZE, 1), dtype=np.int32),
-                    model.fake_labels: np.zeros((BATCH_SIZE, 1), dtype=np.int32)
+                    model.labels: np.full((BATCH_SIZE, 1), 0, dtype=np.int32)
                     }
                 )
             # d_loss_sum_epoch, g_loss_sum_epoch = d_loss_summary, g_loss_summary
@@ -274,7 +257,7 @@ def test():
     for idx in range(len(test_X)):
         X = test_X[idx]/127.5-1
         Y = test_Y[idx]/127.5-1
-        gen_y, gen_x = sess.run([model.X2Y, model.Y2X], feed_dict={model.X: X, model.Y: Y})    
+        gen_y, gen_x = sess.run([model.X2Y, model.Y2X], feed_dict={model.X: X, model.Y: Y, model.labels: np.full((BATCH_SIZE, 1), 0, dtype=np.int32)})    
     
         # Rescale the image from (-1, 1) to (0, 255)
         gen_y = ((gen_y / 2) - 0.5) * 255

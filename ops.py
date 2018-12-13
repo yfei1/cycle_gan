@@ -2,30 +2,32 @@ import tensorflow as tf
 import tensorflow.contrib.slim as slim
 
 
-def batch_norm(x, name="batch_norm"):
-    return tf.contrib.layers.batch_norm(x, decay=0.9, updates_collections=None, epsilon=1e-5, scale=True, scope=name)
-
-
 KERNEL_SIZE = (3, 3)
 
+def batch_norm(x, name="batch_norm"):
+    return tf.layers.batch_normalization(x, momentum=0.9, epsilon=1e-5, name=name)
 
 def instance_norm(input, name="instance_norm"):
-    with tf.variable_scope(name):
-        depth = input.get_shape()[3]
-        scale = tf.get_variable("scale", [depth], initializer=tf.random_normal_initializer(1.0, 0.02, dtype=tf.float32))
-        offset = tf.get_variable("offset", [depth], initializer=tf.constant_initializer(0.0))
-        mean, variance = tf.nn.moments(input, axes=[1, 2], keep_dims=True)
-        epsilon = 1e-5
-        inv = tf.rsqrt(variance + epsilon)
-        normalized = (input - mean) * inv
-        return scale * normalized + offset
+    return tf.contrib.layers.instance_norm(input, param_initializer=tf.truncated_normal_initializer(stddev=.02), scope=name)
 
+def group_norm(x, gamma=1, beta=0, G=4, eps=1e-5, name="group_norm"):
+    with tf.variable_scope(name):
+        N , H, W, C = x.get_shape().as_list()
+        # Group Norm is C is divisible by 2, otherwise using layer norm
+        G = 2 if C % G == 0 else 1
+        x = tf.reshape(x, [-1, H, W, C // G, G])
+        mean, var = tf.nn.moments(x, [1, 2, 3], keep_dims=True)
+        x = (x - mean) / tf.sqrt(var + eps)
+        x = tf.reshape(x, shape=[-1, H, W, C])
+        return x * gamma + beta
 
 def conv2d(input_, output_dim, ks=4, s=2, stddev=0.02, padding='SAME', name="conv2d"):
     with tf.variable_scope(name):
-        return slim.conv2d(input_, output_dim, ks, s, padding=padding, activation_fn=None,
-                                weights_initializer=tf.truncated_normal_initializer(stddev=stddev),
-                                biases_initializer=None)
+        return tf.layers.conv2d(
+                input_, output_dim, ks, strides=s, padding=padding,
+                kernel_initializer=tf.truncated_normal_initializer(stddev=stddev),
+                bias_initializer=None
+                )
 
 
 def res_block(input_, output_dim, y=None, name="res_block_", norm=batch_norm, activation=tf.nn.leaky_relu, scaling=None, down_conv=True):
@@ -98,18 +100,6 @@ def convblock(input_, output_dim, ks=3, s=2, name="convblock", norm=batch_norm, 
     input_ = conv2d(input_, output_dim, ks=ks, s=s, name=name + "conv")
     return input_
 
-
-def group_norm(x, gamma=1, beta=0, G=4, eps=1e-5, name="group_norm"):
-    N, H, W, C = x.get_shape().as_list()
-    # Group Norm is C is divisible by 2, otherwise using layer norm
-    G = 2 if C % G == 0 else 1
-    x = tf.reshape(x, [-1, H, W, C // G, G])
-    mean, var = tf.nn.moments(x, [1, 2, 3], keep_dims=True)
-    x = (x - mean) / tf.sqrt(var + eps)
-    x = tf.reshape(x, shape=[-1, H, W, C])
-    return x * gamma + beta
-
-
 def deconv2d(input_, output_dim, ks=4, s=2, stddev=0.02, name="deconv2d"):
     with tf.variable_scope(name):
         return slim.conv2d_transpose(input_, output_dim, ks, s, padding='SAME', activation_fn=None,
@@ -155,15 +145,3 @@ def nonlocalblock(input_, name='nonlocal_', compression=2):
 
 def lrelu(x, leak=0.2, name="lrelu"):
     return tf.maximum(x, leak * x)
-
-
-def linear(input_, output_size, scope=None, stddev=0.02, bias_start=0.0, with_w=False):
-    with tf.variable_scope(scope or "Linear"):
-        matrix = tf.get_variable("Matrix", [input_.get_shape()[-1], output_size], tf.float32,
-                                 tf.random_normal_initializer(stddev=stddev))
-        bias = tf.get_variable("bias", [output_size],
-                               initializer=tf.constant_initializer(bias_start))
-        if with_w:
-            return tf.matmul(input_, matrix) + bias, matrix, bias
-        else:
-            return tf.matmul(input_, matrix) + bias
