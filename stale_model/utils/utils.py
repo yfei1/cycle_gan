@@ -19,6 +19,7 @@ class GroupNormalization(Layer):
         self.scale_initializer = initializers.get(scale_initializer)
         self.bias_initializer = initializers.get(bias_initializer)
 
+    # noinspection PyAttributeOutsideInit
     def build(self, input_shape):
         self.scale = self.add_weight(shape=(1, 1, input_shape[3]), 
                                      initializer=self.scale_initializer,

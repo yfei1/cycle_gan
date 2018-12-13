@@ -1,14 +1,15 @@
 import tensorflow as tf
-import tensorflow.contrib.slim as slim
-
 
 KERNEL_SIZE = (3, 3)
+
 
 def batch_norm(x, name="batch_norm"):
     return tf.layers.batch_normalization(x, momentum=0.9, epsilon=1e-5, name=name)
 
+
 def instance_norm(input, name="instance_norm"):
     return tf.contrib.layers.instance_norm(input, param_initializer=tf.truncated_normal_initializer(stddev=.02), scope=name)
+
 
 def group_norm(x, gamma=1, beta=0, G=4, eps=1e-5, name="group_norm"):
     with tf.variable_scope(name):
@@ -20,6 +21,7 @@ def group_norm(x, gamma=1, beta=0, G=4, eps=1e-5, name="group_norm"):
         x = (x - mean) / tf.sqrt(var + eps)
         x = tf.reshape(x, shape=[-1, H, W, C])
         return x * gamma + beta
+
 
 def conv2d(input_, output_dim, ks=4, s=2, stddev=0.02, padding='SAME', name="conv2d"):
     with tf.variable_scope(name):
@@ -85,6 +87,7 @@ def resize_deconvblock(input_, output_dim, name="resize_deconvblock", norm=batch
 
         return input_
 
+
 def spectral_normalizer(W, u, name="sn"):
     with tf.variable_scope(name):
         v = tf.nn.l2_normalize(tf.matmul(u, W))
@@ -100,11 +103,14 @@ def convblock(input_, output_dim, ks=3, s=2, name="convblock", norm=batch_norm, 
     input_ = conv2d(input_, output_dim, ks=ks, s=s, name=name + "conv")
     return input_
 
+
 def deconv2d(input_, output_dim, ks=4, s=2, stddev=0.02, name="deconv2d"):
     with tf.variable_scope(name):
-        return slim.conv2d_transpose(input_, output_dim, ks, s, padding='SAME', activation_fn=None,
-                                     weights_initializer=tf.truncated_normal_initializer(stddev=stddev),
-                                     biases_initializer=None)
+        return tf.layers.conv2d_transpose(
+            input_, output_dim, ks,
+            strides=s, padding='SAME',
+            kernel_initializer=tf.truncated_normal_initializer(stddev=stddev)
+        )
 
 
 def nonlocalblock(input_, name='nonlocal_', compression=2):
@@ -143,5 +149,5 @@ def nonlocalblock(input_, name='nonlocal_', compression=2):
     return tf.add(input_, out)
 
 
-def lrelu(x, leak=0.2, name="lrelu"):
-    return tf.maximum(x, leak * x)
+def lrelu(x, alpha=0.2):
+    return tf.maximum(x, alpha * x)

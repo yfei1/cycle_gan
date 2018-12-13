@@ -1,18 +1,14 @@
-import tensorflow as tf
-import numpy as np
 import glob
 import os
-import time
-from scipy.misc import imsave, imread, imresize
 from random import shuffle
-import tensorflow.contrib.gan as gan
-from tqdm import tqdm
-from module import *
+
 import matplotlib.pyplot as plt
- 
+import numpy as np
+import tensorflow.contrib.gan as gan
+from scipy.misc import imsave, imread, imresize
+from tqdm import tqdm
 
-# from utils import *
-
+from module import *
 
 BATCH_SIZE = 1
 FID_BATCH_SIZE = 30
@@ -37,7 +33,6 @@ class Model(object):
     def __init__(self):
         self.discriminator = discriminator
         self.generator = generator_resnet
-        # self.criterionGAN = mae_criterion
 
         self.X = tf.placeholder(tf.float32, [None, INPUT_WIDTH, INPUT_WIDTH, INPUT_DIM])
         self.Y = tf.placeholder(tf.float32, [None, INPUT_WIDTH, INPUT_WIDTH, INPUT_DIM])
@@ -105,9 +100,10 @@ class Model(object):
 
         d1 = gan.eval.frechet_classifier_distance(real_resized1, fake_resized1, gan.eval.run_inception)
         d2 = gan.eval.frechet_classifier_distance(real_resized2, fake_resized2, gan.eval.run_inception)
-        return d1
+        return d1, d2
 
-def buildDataset(x_path, y_path, BATCH_SIZE, weShuffle = True):        
+
+def buildDataset(x_path, y_path, BATCH_SIZE, weShuffle=True):
     x_files = glob.glob(x_path + "/*.jpg")  
     y_files = glob.glob(y_path + "/*.jpg")
     num_of_files = min(len(x_files), len(y_files))
@@ -118,11 +114,10 @@ def buildDataset(x_path, y_path, BATCH_SIZE, weShuffle = True):
 
     x_images = [imresize(imread(x), (INPUT_WIDTH,INPUT_WIDTH)) for x in x_files]
     for i in range(len(x_images)):
-        if(x_images[i].shape != (INPUT_WIDTH,INPUT_WIDTH,INPUT_DIM)):
+        if x_images[i].shape != (INPUT_WIDTH, INPUT_WIDTH, INPUT_DIM):
             print(x_files[i])
             print(x_images[i].shape)
             print("The resized image doesn't match the shape requested, please check the file above.")
-
 
     x_images = np.array(x_images[0:num_of_files])
     x_images = split(x_images,BATCH_SIZE)
@@ -130,26 +125,25 @@ def buildDataset(x_path, y_path, BATCH_SIZE, weShuffle = True):
     y_images = [imresize(imread(x), (INPUT_WIDTH,INPUT_WIDTH)) for x in y_files]
 
     for i in range(len(y_images)):
-        if(y_images[i].shape != (INPUT_WIDTH,INPUT_WIDTH,INPUT_DIM)):
+        if y_images[i].shape != (INPUT_WIDTH, INPUT_WIDTH, INPUT_DIM):
             print(y_files[i])
             print(y_images[i].shape)
             print("The resized image doesn't match the shape requested, please check the file above.")
 
-
-
-    y_images = np.array(y_images[0:num_of_files])    
+    y_images = np.array(y_images[0:num_of_files])
     y_images = split(y_images,BATCH_SIZE)
     return np.array(x_images), np.array(y_images)
     
     
 def split(arr, size):
-     arrs = []
-     while len(arr) > size:
-         pice = arr[:size]
-         arrs.append(pice)
-         arr   = arr[size:]
-     arrs.append(arr)
-     return arrs
+    arrs = []
+    while len(arr) > size:
+        pice = arr[:size]
+        arrs.append(pice)
+        arr = arr[size:]
+        arrs.append(arr)
+    return arrs
+
 
 if not os.path.exists(OUT):
     os.makedirs(OUT)
@@ -169,9 +163,11 @@ sess.run(tf.global_variables_initializer())
 # For saving/loading models
 saver = tf.train.Saver()
 
+
 # Load the last saved checkpoint during training or used by test
 def load_last_checkpoint():
     saver.restore(sess, tf.train.latest_checkpoint('./'))
+
 
 def train():
     print("Model will be saved at %s", MODEL_PATH)
@@ -216,7 +212,6 @@ def train():
                     model.labels: np.full((BATCH_SIZE, 1), 0, dtype=np.int32)
                     }
                 )
-            # d_loss_sum_epoch, g_loss_sum_epoch = d_loss_summary, g_loss_summary
             tqdm_epochs.set_description('Iteration %d: Gen loss = %g | Discrim loss = %g' % (iteration, g_loss, d_loss))
             d_loss_last, g_loss_last = d_loss, g_loss
 
@@ -297,4 +292,3 @@ if MODE == 'train':
 if MODE == 'test':
     load_last_checkpoint()
     test()
-       

@@ -1,26 +1,20 @@
-import keras
+import numpy as np
+import tensorflow as tf
+from keras.activations import (
+    softmax,
+    tanh,
+    sigmoid,
+    relu
+)
 from keras.layers import (
-        Dense,
-        Activation,
-        BatchNormalization,
-        Conv2D,
-        Conv2DTranspose,
-        Input,
-        Add,
-        Reshape
+    Dense,
+    Activation,
+    BatchNormalization,
+    Conv2D,
+    Conv2DTranspose,
+    Reshape
 )
 from keras.models import Sequential
-from keras.activations import (
-        softmax,
-        tanh,
-        sigmoid,
-        relu
-)
-from keras import optimizers
-from keras import backend as K
-import numpy as np
-import os
-import tensorflow as tf
 
 """ Return an activation function as needed"""
 def activation_func(name):
@@ -153,12 +147,14 @@ class CycleGAN:
         for i in range(repetitions):
             self._addConvBlock(model, activations, filters, kernel_size, strides)
 
-    def _addDeconvBlock(self, model, activations, filters, kernel_size=KERNEL_SIZE, strides=CONV_STRIDES):
+    @staticmethod
+    def _addDeconvBlock(model, activations, filters, kernel_size=KERNEL_SIZE, strides=CONV_STRIDES):
         model.add(BatchNormalization(axis=3))
         model.add(Activation(activation_func(activations)))
         model.add(Conv2DTranspose(filters=filters, kernel_size=kernel_size, strides=strides, padding='same'))
 
-    def _addConvBlock(self, model, activations, filters, kernel_size, strides, input_layer=False):
+    @staticmethod
+    def _addConvBlock(model, activations, filters, kernel_size, strides, input_layer=False):
         if not input_layer:
             model.add(BatchNormalization(axis=3))
             model.add(Activation(activation_func(activations)))
@@ -181,7 +177,6 @@ class CycleGAN:
                     # Don't need the for loop now, please change the code below. 
                     # If u run the function, you can find that x_train and y_train are the tensor that you need
 
-                    '''
                     for batch_i, (x_train, y_train) in enumerate(iterator.load_batch(BATCH_SIZE)):
                         x_valid, y_valid, x__, y__, x_identity, y_identity = self.generators.predict([x_train, y_train])
 
@@ -201,15 +196,13 @@ class CycleGAN:
                                                                     [valid, valid,
                                                                     x_train, y_train,
                                                                     x_train, y_train])        
-                    '''
-                
+
                 except tf.errors.OutOfRangeError:
                     print('epoch ' + str( epoch) + ' end.')
                     break
 
-
-
-    def buildDataset(self, x_path = X_PATH, y_path = Y_PATH):        
+    @staticmethod
+    def buildDataset(x_path=X_PATH, y_path=Y_PATH):
         x_Dataset = tf.data.Dataset.list_files( x_path + '/*.jpg')
         y_Dataset = tf.data.Dataset.list_files( y_path + '/*.jpg')
 

@@ -5,6 +5,7 @@ df_dim = 64
 output_c_dim = 3
 is_training = True
 
+
 def discriminator(image, labels, reuse=False, name="discriminator", norm=batch_norm):
     with tf.variable_scope(name):
         if reuse:
@@ -19,6 +20,7 @@ def discriminator(image, labels, reuse=False, name="discriminator", norm=batch_n
         h3 = lrelu(norm(conv2d(h2, df_dim * 8, s=1, name='d_h3_conv'), 'd_bn3'))
         h4 = conv2d(h3, 1, s=1, name='d_h3_pred')
         return h4
+
 
 def discriminator_condnet(image_A, labels, reuse=False, name="discriminator", norm=batch_norm):
     with tf.variable_scope(name):
@@ -55,6 +57,7 @@ def discriminator_condnet(image_A, labels, reuse=False, name="discriminator", no
             output += tf.reduce_sum(w_y * h6, axis=1, keepdims=True)
             
         return tf.nn.sigmoid(output)
+
 
 def generator_condnet(image_A, labels, reuse=False, name="generator", norm=batch_norm):
     with tf.variable_scope(name):
